@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Garmin Data Demo</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <div class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Garmin Connect</p>
+          <h1>Activity Data</h1>
+        </div>
+        <div class="range" id="rangeLabel">Loading</div>
+      </header>
+
+      <main>
+        <section class="summary-grid" id="summaryGrid"></section>
+
+        <section class="workbench">
+          <aside class="activity-list">
+            <div class="panel-head">
+              <h2>Activities</h2>
+              <span id="activityCount"></span>
+            </div>
+            <div id="activityButtons" class="activity-buttons"></div>
+          </aside>
+
+          <section class="detail">
+            <div class="detail-head">
+              <div>
+                <p class="eyebrow" id="selectedDate"></p>
+                <h2 id="selectedTitle">Select an activity</h2>
+              </div>
+              <div class="export-row" id="exportRow"></div>
+            </div>
+
+            <div class="route-panel">
+              <svg id="routeMap" viewBox="0 0 900 360" role="img" aria-label="Activity route"></svg>
+            </div>
+
+            <div class="detail-grid">
+              <section class="stats-panel">
+                <div class="panel-head">
+                  <h3>Stats</h3>
+                </div>
+                <dl id="statsList" class="stats-list"></dl>
+              </section>
+
+              <section class="zones-panel">
+                <div class="panel-head">
+                  <h3>Heart Rate</h3>
+                </div>
+                <div id="zonesList" class="zones-list"></div>
+              </section>
+            </div>
+
+            <section class="chart-panel">
+              <div class="panel-head">
+                <h3>Laps</h3>
+              </div>
+              <canvas id="lapsChart" width="960" height="260"></canvas>
+            </section>
+
+            <section class="table-panel">
+              <div class="panel-head">
+                <h3>Segments</h3>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Segment</th>
+                      <th>Time</th>
+                      <th>Pace</th>
+                    </tr>
+                  </thead>
+                  <tbody id="segmentsTable"></tbody>
+                </table>
+              </div>
+            </section>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
