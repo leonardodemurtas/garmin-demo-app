@@ -1,0 +1,74 @@
+/*
+ * Register A — Product-Evidence design tokens
+ * Source of truth. Every value here is traceable to DESIGN.md
+ * (Baseline Palette, Typography, Canonical Figure Frame).
+ */
+
+:root {
+  /* Surface */
+  --pe-canvas: #08090A;
+  --pe-panel-deep: #0F1011;
+  --pe-panel-raised: #141516;
+  --pe-panel-selected: #1C1C1F;
+  --pe-chip-raised: #232326;
+
+  /* Border + highlight */
+  --pe-border-subtle: rgba(255, 255, 255, 0.07);
+  --pe-border-strong: rgba(255, 255, 255, 0.11);
+  --pe-highlight-top: rgba(255, 255, 255, 0.05);
+
+  /* Text */
+  --pe-text-primary: #F7F8F8;
+  --pe-text-secondary: #D0D6E0;
+  --pe-text-metadata: #8A8F98;
+  --pe-text-dim: #62666D;
+  --pe-text-figure-label: #3A3D44;
+
+  /* Accent — public action accent only. Use sparingly (< 3% of frame). */
+  --pe-accent: #FF7133;
+  --pe-accent-muted-1: #CE5C2B;
+  --pe-accent-muted-2: #9C4723;
+  --pe-accent-muted-3: #6B331A;
+  --pe-accent-muted-4: #391E12;
+  --pe-text-on-accent: #FFFFFF;
+
+  /* Status — encodes state only, never broad theme color */
+  --pe-status-green: #5BC47A;
+  --pe-status-yellow: #F2C94C;
+  --pe-status-red: #EB5757;
+  --pe-status-teal: #4EC3C7;
+  --pe-status-orange: #F2994A;
+
+  /* Radii */
+  --pe-radius-panel: 16px;
+  --pe-radius-panel-lg: 20px;
+  --pe-radius-chip: 999px;
+  --pe-radius-chip-square: 6px;
+  --pe-radius-composer: 20px;
+
+  /* Type sizes — calibrated for 1200px canvas */
+  --pe-fs-figure-label: 20px;
+  --pe-fs-caption-headline: 26px;
+  --pe-fs-caption-body: 26px;
+  --pe-fs-ui-label: 24px;
+  --pe-fs-ui-metadata: 18px;
+  --pe-fs-annotation: 20px;
+
+  /* Frame geometry */
+  --pe-canvas-size: 1200px;
+  --pe-frame-inset: 45px;
+  --pe-subject-band-top: 28%;
+  --pe-subject-band-bottom: 64%;
+
+  /* Opacity ramps for fade hierarchy */
+  --pe-dim-1: 0.45;
+  --pe-dim-2: 0.25;
+  --pe-dim-3: 0.15;
+
+  /* Fonts */
+  --pe-font-sans: 'Inter', 'SF Pro', system-ui, -apple-system, sans-serif;
+  --pe-font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* Shadows — felt more than seen */
+  --pe-shadow-soft: 0 30px 60px -24px rgba(0, 0, 0, 0.65);
+}

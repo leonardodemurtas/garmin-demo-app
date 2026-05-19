@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Register A — Product-Evidence | specimen</title>
+  <meta name="description" content="Live specimen of the Register A — Product-Evidence dev system: tokens, primitives, archetypes." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="./styles/tokens.css" />
+  <link rel="stylesheet" href="./styles/components.css" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="./tailwind.config.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--pe-canvas);
+      color: var(--pe-text-primary);
+      font-family: var(--pe-font-sans);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .doc {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 72px 48px 120px;
+    }
+
+    .doc-eyebrow {
+      font-family: var(--pe-font-mono);
+      font-size: 13px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--pe-text-figure-label);
+      margin: 0 0 14px 0;
+    }
+    .doc h1 {
+      font-size: 36px;
+      font-weight: 600;
+      line-height: 1.2;
+      margin: 0 0 16px 0;
+      letter-spacing: -0.01em;
+    }
+    .doc h2 {
+      font-size: 14px;
+      font-family: var(--pe-font-mono);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--pe-text-metadata);
+      margin: 64px 0 24px 0;
+      font-weight: 500;
+    }
+    .doc-lead {
+      font-size: 17px;
+      color: var(--pe-text-metadata);
+      line-height: 1.55;
+      max-width: 720px;
+      margin: 0;
+    }
+    .doc-meta {
+      color: var(--pe-text-dim);
+      font-size: 13px;
+      font-family: var(--pe-font-mono);
+      margin-top: 22px;
+    }
+
+    /* Token swatches */
+    .swatch-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+    }
+    .swatch {
+      background: var(--pe-panel-deep);
+      border: 1px solid var(--pe-border-subtle);
+      border-radius: 12px;
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .swatch-chip {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      flex-shrink: 0;
+      border: 1px solid var(--pe-border-subtle);
+    }
+    .swatch-name {
+      font-family: var(--pe-font-mono);
+      font-size: 12px;
+      color: var(--pe-text-secondary);
+      letter-spacing: 0.02em;
+      word-break: break-all;
+    }
+    .swatch-value {
+      font-family: var(--pe-font-mono);
+      font-size: 11px;
+      color: var(--pe-text-dim);
+      margin-top: 2px;
+    }
+
+    /* Type scale */
+    .type-row {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 24px;
+      align-items: baseline;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--pe-border-subtle);
+    }
+    .type-row:last-child { border-bottom: 0; }
+    .type-label {
+      font-family: var(--pe-font-mono);
+      font-size: 12px;
+      color: var(--pe-text-metadata);
+      letter-spacing: 0.06em;
+    }
+
+    /* Primitives gallery */
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 18px;
+    }
+    .gallery-card {
+      background: var(--pe-canvas);
+      border: 1px solid var(--pe-border-subtle);
+      border-radius: 14px;
+      padding: 28px;
+      min-height: 140px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 14px;
+    }
+    .gallery-card-label {
+      font-family: var(--pe-font-mono);
+      font-size: 11px;
+      color: var(--pe-text-figure-label);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .gallery-card-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    /* Archetype thumbs — scaled iframes */
+    .thumbs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+    .thumb {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      color: var(--pe-text-secondary);
+      text-decoration: none;
+    }
+    .thumb-frame {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border: 1px solid var(--pe-border-subtle);
+      border-radius: 14px;
+      overflow: hidden;
+      background: var(--pe-canvas);
+      position: relative;
+    }
+    .thumb-frame iframe {
+      width: 1200px;
+      height: 1200px;
+      border: 0;
+      transform-origin: top left;
+      /* container width ~340px / 1200 ≈ 0.28 */
+      transform: scale(0.28);
+    }
+    .thumb-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .thumb-id {
+      font-family: var(--pe-font-mono);
+      font-size: 12px;
+      color: var(--pe-text-metadata);
+      letter-spacing: 0.1em;
+    }
+    .thumb-name { font-size: 14px; color: var(--pe-text-primary); }
+
+    /* Rubric */
+    .rubric {
+      background: var(--pe-panel-deep);
+      border: 1px solid var(--pe-border-subtle);
+      border-radius: 14px;
+      padding: 28px 32px;
+    }
+    .rubric h3 {
+      font-size: 13px;
+      font-family: var(--pe-font-mono);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--pe-text-metadata);
+      margin: 0 0 14px 0;
+      font-weight: 500;
+    }
+    .rubric ul { margin: 0 0 24px 0; padding-left: 22px; color: var(--pe-text-secondary); font-size: 14px; line-height: 1.65; }
+    .rubric ul:last-child { margin-bottom: 0; }
+  </style>
+</head>
+<body>
+  <main class="doc">
+    <p class="doc-eyebrow">Register A · Product-Evidence</p>
+    <h1>Dev styles for one captured product state.</h1>
+    <p class="doc-lead">
+      Tokens, primitives, and three archetype figures. Plain HTML, Tailwind via CDN, Lucide via CDN.
+      Calibrated against DESIGN.md and the Linear reference set; orange is the only public accent, and its surface area is bounded structurally by the component layer.
+    </p>
+    <p class="doc-meta">v0 · A.1 Picker · A.2 Chip Field · A.5 Composer</p>
+
+    <!-- Tokens -->
+    <h2>1 · Surface &amp; text tokens</h2>
+    <div class="swatch-grid">
+      <div class="swatch"><div class="swatch-chip" style="background: var(--pe-canvas);"></div><div><div class="swatch-name">--pe-canvas</div><div class="swatch-value">#08090A</div></div></div>
+      <div class="swatch"><div class="swatch-chip" style="background: var(--pe-panel-deep);"></div><div><div class="swatch-name">--pe-panel-deep</div><div class="swatch-value">#0F1011</div></div></div>
+      <div class="swatch"><div class="swatch-chip" style="background: var(--pe-panel-raised);"></div><div><div class="swatch-name">--pe-panel-raised</div><div class="swatch-value">#141516</div></div></div>
+      <div class="swatch"><div class="swatch-chip" style="background: var(--pe-panel-selected);"></div><div><div class="swatch-name">--pe-panel-selected</div><div class="swatch-value">#1C1C1F</div></div></div>
+      <div class="swatch"><div class="swatch-chip" style="background: var(--pe-chip-raised);"></div><div><div class="swatch-name">--pe-chip-raised</div><div class="swatch-value">#232326</div></div></div>
+      <div class="swatch"><div class="swatch-chip" style="background: var(--pe-text-primary);"></div><div><div class="swatch-name">--pe-text-primary</div><div class="swatch-value">#F7F8F8</div></div></div>
+      <div class="swatch"><div class="swatch-chip" style="background: var(--pe-text-secondary);"></div><div><div class="swatch-name">--pe-text-secondary</div><div class="swatch-value">#D0D6E0</div></div></div>
+      <div class="swatch"><div class="swatch-chip" style="background: var(--pe-text-metadata);"></div><div><div class="swatch-name">--pe-text-metadata</div><div class="swatch-value">#8A8F98</div></div></div>
+      <div class="swatch"><div class="swatch-chip" style="background: var(--pe-text-dim);"></div><div><div class="swatch-name">--pe-text-dim</div><div class="swatch-value">#62666D</div></div></div>
+      <div class="swatch"><div class="swatch-chip" style="background: var(--pe-text-figure-label);"></div><div><div class="swatch-name">--pe-text-figure-label</div><div class="swatch-value">#3A3D44</div></div></div>
+    </div>
+
+    <h2>2 · Accent &amp; status</h2>
+    <div class="swatch-grid">
+      <div class="swatch"><div class="swatch-chip" style="background: var(--pe-accent);"></div><div><div class="swatch-name">--pe-accent</div><div class="swatch-value">#FF7133</div></div></div>
+      <div class="swatch"><div class="swatch-chip" style="background: var(--pe-accent-muted-1);"></div><div><div class="swatch-name">--pe-accent-muted-1</div><div class="swatch-value">#CE5C2B</div></div></div>
+      <div class="swatch"><div class="swatch-chip" style="background: var(--pe-accent-muted-2);"></div><div><div class="swatch-name">--pe-accent-muted-2</div><div class="swatch-value">#9C4723</div></div></div>
+      <div class="swatch"><div class="swatch-chip" style="background: var(--pe-accent-muted-3);"></div><div><div class="swatch-name">--pe-accent-muted-3</div><div class="swatch-value">#6B331A</div></div></div>
+      <div class="swatch"><div class="swatch-chip" style="background: var(--pe-status-green);"></div><div><div class="swatch-name">--pe-status-green</div><div class="swatch-value">#5BC47A</div></div></div>
+      <div class="swatch"><div class="swatch-chip" style="background: var(--pe-status-yellow);"></div><div><div class="swatch-name">--pe-status-yellow</div><div class="swatch-value">#F2C94C</div></div></div>
+      <div class="swatch"><div class="swatch-chip" style="background: var(--pe-status-red);"></div><div><div class="swatch-name">--pe-status-red</div><div class="swatch-value">#EB5757</div></div></div>
+      <div class="swatch"><div class="swatch-chip" style="background: var(--pe-status-teal);"></div><div><div class="swatch-name">--pe-status-teal</div><div class="swatch-value">#4EC3C7</div></div></div>
+    </div>
+
+    <!-- Type scale -->
+    <h2>3 · Type scale (1200px canvas)</h2>
+    <div>
+      <div class="type-row">
+        <span class="type-label">--pe-fs-figure-label · mono</span>
+        <span style="font-family: var(--pe-font-mono); font-size: var(--pe-fs-figure-label); letter-spacing: 0.14em; color: var(--pe-text-figure-label); text-transform: uppercase;">FIG. 1.1</span>
+      </div>
+      <div class="type-row">
+        <span class="type-label">--pe-fs-caption-headline</span>
+        <span style="font-size: var(--pe-fs-caption-headline); font-weight: 600; color: var(--pe-text-primary);">The selected option carries operating intent.</span>
+      </div>
+      <div class="type-row">
+        <span class="type-label">--pe-fs-caption-body</span>
+        <span style="font-size: var(--pe-fs-caption-body); color: var(--pe-text-metadata);">Captions are part of the figure, not metadata glued to the bottom.</span>
+      </div>
+      <div class="type-row">
+        <span class="type-label">--pe-fs-ui-label</span>
+        <span style="font-size: var(--pe-fs-ui-label); color: var(--pe-text-secondary);">Design system agent</span>
+      </div>
+      <div class="type-row">
+        <span class="type-label">--pe-fs-ui-metadata</span>
+        <span style="font-size: var(--pe-fs-ui-metadata); color: var(--pe-text-metadata);">Engineer · May 21</span>
+      </div>
+      <div class="type-row">
+        <span class="type-label">--pe-fs-annotation · mono</span>
+        <span style="font-family: var(--pe-font-mono); font-size: var(--pe-fs-annotation); letter-spacing: 0.14em; color: var(--pe-text-metadata); text-transform: uppercase;">BREACHED</span>
+      </div>
+    </div>
+
+    <!-- Primitives gallery -->
+    <h2>4 · Primitives</h2>
+    <div class="gallery">
+      <div class="gallery-card">
+        <span class="gallery-card-label">.pe-panel + .pe-row</span>
+        <div class="pe-panel" style="width: 100%;">
+          <div class="pe-row">
+            <span class="pe-icon pe-icon--md"><i data-lucide="circle-dot"></i></span>
+            <span class="pe-row-title">Default row</span>
+            <span class="pe-row-meta">meta</span>
+          </div>
+          <div class="pe-row pe-row--selected">
+            <span class="pe-icon pe-icon--md" style="color: var(--pe-text-primary);"><i data-lucide="bot"></i></span>
+            <span class="pe-row-title">Selected row</span>
+            <span class="pe-row-meta" style="color: var(--pe-text-secondary);">
+              <span class="pe-icon pe-icon--sm" style="color: var(--pe-text-secondary);"><i data-lucide="check"></i></span>
+            </span>
+          </div>
+          <div class="pe-row pe-row--dim-1">
+            <span class="pe-icon pe-icon--md"><i data-lucide="user-round"></i></span>
+            <span class="pe-row-title">Dim-1 row</span>
+            <span class="pe-row-meta">meta</span>
+          </div>
+          <div class="pe-row pe-row--dim-2">
+            <span class="pe-icon pe-icon--md"><i data-lucide="user-round"></i></span>
+            <span class="pe-row-title">Dim-2 row</span>
+            <span class="pe-row-meta">meta</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="gallery-card">
+        <span class="gallery-card-label">.pe-chip variants</span>
+        <div class="gallery-card-row">
+          <span class="pe-chip">Default</span>
+          <span class="pe-chip pe-chip--id">DSY-204</span>
+          <span class="pe-chip pe-chip--status-green"><span class="pe-status-dot pe-status-dot--green"></span>Ready</span>
+          <span class="pe-chip pe-chip--status-yellow"><span class="pe-status-dot pe-status-dot--yellow"></span>Blocked</span>
+          <span class="pe-chip pe-chip--status-red"><span class="pe-status-dot pe-status-dot--red"></span>Breached</span>
+          <span class="pe-chip pe-chip--status-teal"><span class="pe-status-dot pe-status-dot--teal"></span>Triage</span>
+          <span class="pe-chip pe-chip--status-orange"><span class="pe-status-dot pe-status-dot--orange"></span>In Review</span>
+          <span class="pe-chip pe-chip--mention">@agent</span>
+        </div>
+      </div>
+
+      <div class="gallery-card">
+        <span class="gallery-card-label">accent set</span>
+        <div class="gallery-card-row" style="gap: 22px;">
+          <span style="display: inline-flex; align-items: baseline; color: var(--pe-text-secondary);">
+            Text<span class="pe-cursor"></span>
+          </span>
+          <button class="pe-send"><span class="pe-icon pe-icon--md"><i data-lucide="arrow-up"></i></span></button>
+          <span class="pe-mention">@design-system-agent</span>
+        </div>
+        <div style="font-family: var(--pe-font-mono); font-size: 11px; color: var(--pe-text-dim);">
+          .pe-cursor · .pe-send · .pe-mention
+        </div>
+      </div>
+
+      <div class="gallery-card">
+        <span class="gallery-card-label">.pe-avatar &amp; icons</span>
+        <div class="gallery-card-row" style="gap: 18px;">
+          <span class="pe-avatar">M</span>
+          <span class="pe-avatar">P</span>
+          <span class="pe-avatar">S</span>
+          <span class="pe-icon pe-icon--sm"><i data-lucide="check"></i></span>
+          <span class="pe-icon pe-icon--md"><i data-lucide="bot"></i></span>
+          <span class="pe-icon pe-icon--lg"><i data-lucide="circle-dot"></i></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Archetypes -->
+    <h2>5 · Archetypes</h2>
+    <div class="thumbs">
+      <a class="thumb" href="archetypes/a1-picker.html" target="_blank" rel="noopener">
+        <div class="thumb-frame"><iframe src="archetypes/a1-picker.html" loading="lazy" title="A.1 Picker"></iframe></div>
+        <div class="thumb-meta"><span class="thumb-id">FIG. 1.1</span><span class="thumb-name">Product Picker</span></div>
+      </a>
+      <a class="thumb" href="archetypes/a2-chip-field.html" target="_blank" rel="noopener">
+        <div class="thumb-frame"><iframe src="archetypes/a2-chip-field.html" loading="lazy" title="A.2 Chip Field"></iframe></div>
+        <div class="thumb-meta"><span class="thumb-id">FIG. 1.2</span><span class="thumb-name">Chip Field</span></div>
+      </a>
+      <a class="thumb" href="archetypes/a5-composer.html" target="_blank" rel="noopener">
+        <div class="thumb-frame"><iframe src="archetypes/a5-composer.html" loading="lazy" title="A.5 Composer"></iframe></div>
+        <div class="thumb-meta"><span class="thumb-id">FIG. 1.5</span><span class="thumb-name">Command Composer</span></div>
+      </a>
+    </div>
+
+    <!-- Rubric -->
+    <h2>6 · Pass/Fail rubric (Register A)</h2>
+    <div class="rubric">
+      <h3>Critical gates</h3>
+      <ul>
+        <li>Uses a recognized A archetype.</li>
+        <li>Shows one concrete product state.</li>
+        <li>Does not copy Linear logos, proprietary layouts, or exact UI content.</li>
+        <li>Does not use generic AI decoration.</li>
+        <li>Does not introduce a second public accent color.</li>
+      </ul>
+      <h3>Scored checks · target ≥ 16 / 20</h3>
+      <ul>
+        <li>Product evidence · feels like a real software state, not a diagram</li>
+        <li>Scale · subject occupies 60–75% of frame</li>
+        <li>Caption weight · intentionally composed, readable</li>
+        <li>Focus · one element crisp, supporting context recedes</li>
+        <li>Density · enough product detail to avoid generic-card syndrome</li>
+        <li>Fade · inactive edges and background layers dissolve into the canvas</li>
+        <li>Color restraint · accent under 3%, functional only</li>
+        <li>Depth · borders and highlights subtle, not mockup-like</li>
+        <li>Typography · hierarchy matches the reference scale and tone</li>
+        <li>Quietness · breathes without feeling empty</li>
+      </ul>
+    </div>
+  </main>
+
+  <script>lucide.createIcons();</script>
+</body>
+</html>

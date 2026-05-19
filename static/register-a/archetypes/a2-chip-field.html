@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>FIG. 1.2 — Floating Issue Table / Chip Field</title>
+  <meta name="description" content="Register A archetype A.2: an issue work queue without an outer table container; pills, IDs, status chips, avatars, and dates float on the canvas with edge falloff." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../styles/tokens.css" />
+  <link rel="stylesheet" href="../styles/components.css" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="../tailwind.config.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    html, body { margin: 0; padding: 0; background: var(--pe-canvas); }
+
+    /* A.2-specific layout — bare rows on canvas, no outer panel. */
+    .a2-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .a2-row {
+      display: grid;
+      grid-template-columns: 92px 1fr 130px 36px 70px;
+      align-items: center;
+      gap: 18px;
+      padding: 12px 0;
+      color: var(--pe-text-secondary);
+      font-size: var(--pe-fs-ui-label);
+    }
+    .a2-row .a2-title {
+      color: var(--pe-text-secondary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .a2-row .a2-date {
+      color: var(--pe-text-dim);
+      font-size: var(--pe-fs-ui-metadata);
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .a2-row.is-focus .a2-title {
+      color: var(--pe-text-primary);
+    }
+  </style>
+</head>
+<body>
+  <div class="pe-frame">
+    <div class="pe-figure-label">FIG.&nbsp;1.2</div>
+
+    <div class="pe-subject" style="width: 80%; top: 24%;">
+      <div class="a2-stack pe-fade-mask--vignette">
+
+        <div class="a2-row pe-row--dim-2">
+          <span class="pe-chip pe-chip--id">DSY-198</span>
+          <span class="a2-title">Backfill audit fields for legacy agent runs</span>
+          <span class="pe-chip pe-chip--status-teal">
+            <span class="pe-status-dot pe-status-dot--teal"></span>Triage
+          </span>
+          <span class="pe-avatar">P</span>
+          <span class="a2-date">May 12</span>
+        </div>
+
+        <div class="a2-row pe-row--dim-1">
+          <span class="pe-chip pe-chip--id">DSY-201</span>
+          <span class="a2-title">Reject writes when permission scope is empty</span>
+          <span class="pe-chip pe-chip--status-yellow">
+            <span class="pe-status-dot pe-status-dot--yellow"></span>Blocked
+          </span>
+          <span class="pe-avatar">M</span>
+          <span class="a2-date">May 16</span>
+        </div>
+
+        <div class="a2-row is-focus">
+          <span class="pe-chip pe-chip--id">DSY-204</span>
+          <span class="a2-title">Audit-logging surface for new agent actions</span>
+          <span class="pe-chip pe-chip--status-orange">
+            <span class="pe-status-dot pe-status-dot--orange"></span>In Review
+          </span>
+          <span class="pe-avatar">M</span>
+          <span class="a2-date">May 21</span>
+        </div>
+
+        <div class="a2-row is-focus">
+          <span class="pe-chip pe-chip--id">DSY-205</span>
+          <span class="a2-title">Surface consent prompt before agent applies change</span>
+          <span class="pe-chip pe-chip--status-green">
+            <span class="pe-status-dot pe-status-dot--green"></span>Ready
+          </span>
+          <span class="pe-avatar">S</span>
+          <span class="a2-date">May 22</span>
+        </div>
+
+        <div class="a2-row pe-row--dim-1">
+          <span class="pe-chip pe-chip--id">DSY-211</span>
+          <span class="a2-title">Reconcile run-log retention with compliance window</span>
+          <span class="pe-chip pe-chip--status-teal">
+            <span class="pe-status-dot pe-status-dot--teal"></span>Triage
+          </span>
+          <span class="pe-avatar">A</span>
+          <span class="a2-date">May 24</span>
+        </div>
+
+        <div class="a2-row pe-row--dim-2">
+          <span class="pe-chip pe-chip--id">DSY-217</span>
+          <span class="a2-title">Migrate stale tokens off long-lived sessions</span>
+          <span class="pe-chip pe-chip--status-red">
+            <span class="pe-status-dot pe-status-dot--red"></span>Breached
+          </span>
+          <span class="pe-avatar">P</span>
+          <span class="a2-date">May 27</span>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="pe-caption">
+      <p class="pe-caption-headline">The queue is operating across humans and agents at the same time.</p>
+      <p class="pe-caption-body">Two records carry today's work; the rest fade into the dark field.</p>
+    </div>
+  </div>
+
+  <script>lucide.createIcons();</script>
+</body>
+</html>

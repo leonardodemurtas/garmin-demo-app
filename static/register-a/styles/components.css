@@ -1,0 +1,310 @@
+/*
+ * Register A — Product-Evidence primitives
+ * Framework-agnostic CSS. Depends only on tokens.css.
+ *
+ * Guardrails baked into this file:
+ * - No hex codes here. Every color reads from a --pe-* token.
+ * - Orange usage is confined to .pe-cursor, .pe-send, .pe-mention,
+ *   and .pe-chip--mention. This structurally enforces the
+ *   "accent < 3% of frame" rule from DESIGN.md.
+ */
+
+/* ---------- Frame ---------- */
+
+.pe-frame {
+  position: relative;
+  width: var(--pe-canvas-size);
+  height: var(--pe-canvas-size);
+  background-color: var(--pe-canvas);
+  color: var(--pe-text-primary);
+  font-family: var(--pe-font-sans);
+  font-size: var(--pe-fs-ui-label);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.pe-figure-label {
+  position: absolute;
+  top: var(--pe-frame-inset);
+  left: var(--pe-frame-inset);
+  font-family: var(--pe-font-mono);
+  font-size: var(--pe-fs-figure-label);
+  letter-spacing: 0.14em;
+  color: var(--pe-text-figure-label);
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.pe-caption {
+  position: absolute;
+  left: var(--pe-frame-inset);
+  right: var(--pe-frame-inset);
+  bottom: var(--pe-frame-inset);
+  max-width: 72%;
+}
+
+.pe-caption-headline {
+  font-size: var(--pe-fs-caption-headline);
+  font-weight: 600;
+  color: var(--pe-text-primary);
+  line-height: 1.3;
+  letter-spacing: -0.005em;
+  margin: 0 0 12px 0;
+}
+
+.pe-caption-body {
+  font-size: var(--pe-fs-caption-body);
+  font-weight: 400;
+  color: var(--pe-text-metadata);
+  line-height: 1.42;
+  letter-spacing: -0.005em;
+  margin: 0;
+}
+
+/* Subject slot — positions the main product fragment in the canonical band */
+.pe-subject {
+  position: absolute;
+  left: 50%;
+  top: var(--pe-subject-band-top);
+  transform: translateX(-50%);
+}
+
+/* ---------- Panel ---------- */
+
+.pe-panel {
+  position: relative;
+  background-color: var(--pe-panel-raised);
+  border: 1px solid var(--pe-border-subtle);
+  border-radius: var(--pe-radius-panel);
+  box-shadow: var(--pe-shadow-soft);
+  overflow: hidden;
+}
+
+.pe-panel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--pe-highlight-top);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.pe-panel--composer {
+  border-radius: var(--pe-radius-composer);
+}
+
+.pe-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--pe-border-subtle);
+  color: var(--pe-text-metadata);
+  font-size: var(--pe-fs-ui-metadata);
+  font-family: var(--pe-font-mono);
+}
+
+/* ---------- Row ---------- */
+
+.pe-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 22px;
+  color: var(--pe-text-secondary);
+  font-size: var(--pe-fs-ui-label);
+  font-weight: 400;
+}
+
+.pe-row + .pe-row {
+  border-top: 1px solid var(--pe-border-subtle);
+}
+
+.pe-row--selected {
+  background-color: var(--pe-panel-selected);
+  color: var(--pe-text-primary);
+  font-weight: 500;
+}
+
+.pe-row--bare {
+  padding: 10px 0;
+}
+
+.pe-row--bare + .pe-row--bare {
+  border-top: 0;
+}
+
+.pe-row--dim-1 { opacity: var(--pe-dim-1); }
+.pe-row--dim-2 { opacity: var(--pe-dim-2); }
+.pe-row--dim-3 { opacity: var(--pe-dim-3); }
+
+.pe-row-meta {
+  margin-left: auto;
+  color: var(--pe-text-dim);
+  font-size: var(--pe-fs-ui-metadata);
+  font-weight: 400;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pe-row-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- Chip ---------- */
+
+.pe-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--pe-radius-chip);
+  background-color: var(--pe-chip-raised);
+  color: var(--pe-text-secondary);
+  font-size: var(--pe-fs-ui-metadata);
+  font-weight: 500;
+  border: 1px solid var(--pe-border-subtle);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.pe-chip--id {
+  font-family: var(--pe-font-mono);
+  border-radius: var(--pe-radius-chip-square);
+  background-color: transparent;
+  border-color: var(--pe-border-subtle);
+  color: var(--pe-text-metadata);
+  letter-spacing: 0.02em;
+}
+
+.pe-chip--status-green { color: var(--pe-status-green); }
+.pe-chip--status-yellow { color: var(--pe-status-yellow); }
+.pe-chip--status-red { color: var(--pe-status-red); }
+.pe-chip--status-teal { color: var(--pe-status-teal); }
+.pe-chip--status-orange { color: var(--pe-status-orange); }
+
+.pe-chip--mention {
+  color: var(--pe-accent);
+  background-color: var(--pe-accent-muted-4);
+  border-color: var(--pe-accent-muted-3);
+}
+
+/* ---------- Status indicators ---------- */
+
+.pe-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.pe-status-dot--green { background: var(--pe-status-green); }
+.pe-status-dot--yellow { background: var(--pe-status-yellow); }
+.pe-status-dot--red { background: var(--pe-status-red); }
+.pe-status-dot--teal { background: var(--pe-status-teal); }
+.pe-status-dot--orange { background: var(--pe-status-orange); }
+
+/* ---------- Icon (Lucide wrapper) ---------- */
+
+.pe-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--pe-text-metadata);
+}
+
+.pe-icon--sm { width: 14px; height: 14px; }
+.pe-icon--md { width: 18px; height: 18px; }
+.pe-icon--lg { width: 24px; height: 24px; }
+
+.pe-icon svg {
+  width: 100%;
+  height: 100%;
+  stroke-width: 1.75;
+}
+
+/* ---------- Accent primitives — bounded set ---------- */
+
+.pe-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.05em;
+  background-color: var(--pe-accent);
+  vertical-align: text-bottom;
+  margin-left: 2px;
+}
+
+.pe-send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background-color: var(--pe-accent);
+  color: var(--pe-text-on-accent);
+  border-radius: 12px;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+}
+
+.pe-send .pe-icon { color: var(--pe-text-on-accent); }
+
+.pe-mention {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border-radius: var(--pe-radius-chip);
+  background-color: var(--pe-accent-muted-4);
+  color: var(--pe-accent);
+  font-weight: 500;
+}
+
+/* ---------- Avatar ---------- */
+
+.pe-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background-color: var(--pe-chip-raised);
+  color: var(--pe-text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px solid var(--pe-border-subtle);
+  flex-shrink: 0;
+}
+
+/* ---------- Fade masks — Register A's signature edge falloff ---------- */
+
+.pe-fade-mask--top {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 22%, black 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, black 22%, black 100%);
+}
+
+.pe-fade-mask--bottom {
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, black 72%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 0%, black 72%, transparent 100%);
+}
+
+.pe-fade-mask--edges {
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%);
+}
+
+.pe-fade-mask--vignette {
+  -webkit-mask-image: radial-gradient(ellipse 70% 55% at center, black 35%, transparent 100%);
+  mask-image: radial-gradient(ellipse 70% 55% at center, black 35%, transparent 100%);
+}

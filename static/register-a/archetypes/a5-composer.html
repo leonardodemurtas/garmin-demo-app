@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>FIG. 1.5 — Command Composer</title>
+  <meta name="description" content="Register A archetype A.5: a command composer with a mention chip and a single accent send control, ready to become an operation." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../styles/tokens.css" />
+  <link rel="stylesheet" href="../styles/components.css" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="../tailwind.config.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    html, body { margin: 0; padding: 0; background: var(--pe-canvas); }
+
+    .a5-text {
+      font-size: var(--pe-fs-ui-label);
+      color: var(--pe-text-primary);
+      line-height: 1.45;
+      letter-spacing: -0.005em;
+      margin: 0 0 28px 0;
+    }
+    .a5-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      color: var(--pe-text-metadata);
+    }
+    .a5-toolbar-spacer { margin-left: auto; }
+
+    /* Dim suggestion of an underlying surface behind the composer */
+    .a5-shadow-panel {
+      position: absolute;
+      inset: 18% 14% auto 14%;
+      height: 64%;
+      background: var(--pe-panel-deep);
+      border: 1px solid var(--pe-border-subtle);
+      border-radius: var(--pe-radius-panel);
+      opacity: var(--pe-dim-3);
+      z-index: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="pe-frame">
+    <div class="pe-figure-label">FIG.&nbsp;1.5</div>
+
+    <div class="a5-shadow-panel"></div>
+
+    <div class="pe-subject" style="width: 70%; top: 34%; z-index: 2;">
+      <div class="pe-panel pe-panel--composer" style="padding: 28px 30px 22px 30px;">
+        <p class="a5-text">
+          Draft release notes for the change in
+          <span class="pe-mention">@design-system-agent</span>,
+          focused on the new audit-logging fields and the consent prompt.<span class="pe-cursor"></span>
+        </p>
+
+        <div class="a5-toolbar">
+          <span class="pe-icon pe-icon--md"><i data-lucide="paperclip"></i></span>
+          <span class="pe-icon pe-icon--md"><i data-lucide="image"></i></span>
+          <span class="pe-icon pe-icon--md"><i data-lucide="at-sign"></i></span>
+          <span class="pe-icon pe-icon--md"><i data-lucide="slash"></i></span>
+          <span class="pe-icon pe-icon--md"><i data-lucide="globe"></i></span>
+          <span class="a5-toolbar-spacer"></span>
+          <button class="pe-send" aria-label="Send">
+            <span class="pe-icon pe-icon--md"><i data-lucide="arrow-up"></i></span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="pe-caption">
+      <p class="pe-caption-headline">A command is one keystroke away from becoming an operation.</p>
+      <p class="pe-caption-body">The mention names who will carry it out; the send control is the only loud color in the frame.</p>
+    </div>
+  </div>
+
+  <script>lucide.createIcons();</script>
+</body>
+</html>

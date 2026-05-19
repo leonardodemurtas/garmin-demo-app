@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>FIG. 1.1 — Product Picker / Selected Row</title>
+  <meta name="description" content="Register A archetype A.1: a picker surface with one selected option carrying operating intent." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../styles/tokens.css" />
+  <link rel="stylesheet" href="../styles/components.css" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="../tailwind.config.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    html, body { margin: 0; padding: 0; background: var(--pe-canvas); }
+  </style>
+</head>
+<body>
+  <div class="pe-frame">
+    <div class="pe-figure-label">FIG.&nbsp;1.1</div>
+
+    <div class="pe-subject" style="width: 62%;">
+      <div class="pe-panel">
+        <div class="pe-panel-header">
+          <span class="pe-icon pe-icon--md"><i data-lucide="chevron-right"></i></span>
+          <span>Assign to&hellip;<span class="pe-cursor"></span></span>
+        </div>
+
+        <div class="pe-row pe-row--dim-2">
+          <span class="pe-icon pe-icon--md"><i data-lucide="user-round"></i></span>
+          <span class="pe-row-title">Maya Ibrahim</span>
+          <span class="pe-row-meta">Engineer</span>
+        </div>
+
+        <div class="pe-row pe-row--dim-1">
+          <span class="pe-icon pe-icon--md"><i data-lucide="user-round"></i></span>
+          <span class="pe-row-title">Petar Novak</span>
+          <span class="pe-row-meta">Engineer</span>
+        </div>
+
+        <div class="pe-row pe-row--selected">
+          <span class="pe-icon pe-icon--md" style="color: var(--pe-text-primary);"><i data-lucide="bot"></i></span>
+          <span class="pe-row-title">Design system agent</span>
+          <span class="pe-row-meta" style="color: var(--pe-text-secondary);">
+            <span class="pe-icon pe-icon--sm" style="color: var(--pe-text-secondary);"><i data-lucide="check"></i></span>
+          </span>
+        </div>
+
+        <div class="pe-row pe-row--dim-1">
+          <span class="pe-icon pe-icon--md"><i data-lucide="bot"></i></span>
+          <span class="pe-row-title">Triage agent</span>
+          <span class="pe-row-meta">Agent</span>
+        </div>
+
+        <div class="pe-row pe-row--dim-2">
+          <span class="pe-icon pe-icon--md"><i data-lucide="user-round"></i></span>
+          <span class="pe-row-title">Sofia Reyes</span>
+          <span class="pe-row-meta">PM</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="pe-caption">
+      <p class="pe-caption-headline">The picker accepts an agent as a first-class assignee.</p>
+      <p class="pe-caption-body">The selected option carries the operating intent for the rest of the surface.</p>
+    </div>
+  </div>
+
+  <script>lucide.createIcons();</script>
+</body>
+</html>
