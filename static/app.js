@@ -1,129 +1,946 @@
+const app = document.querySelector("#app");
+
 const state = {
   summary: null,
+  provenance: null,
   activities: [],
-  selectedId: null,
-  selectedDetail: null,
+  detailCache: new Map(),
+  charts: [],
 };
 
-const el = {
-  rangeLabel: document.querySelector("#rangeLabel"),
-  summaryGrid: document.querySelector("#summaryGrid"),
-  activityCount: document.querySelector("#activityCount"),
-  activityButtons: document.querySelector("#activityButtons"),
-  selectedDate: document.querySelector("#selectedDate"),
-  selectedTitle: document.querySelector("#selectedTitle"),
-  exportRow: document.querySelector("#exportRow"),
-  routeMap: document.querySelector("#routeMap"),
-  statsList: document.querySelector("#statsList"),
-  zonesList: document.querySelector("#zonesList"),
-  lapsChart: document.querySelector("#lapsChart"),
-  segmentsTable: document.querySelector("#segmentsTable"),
+const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+const chartColors = {
+  route: cssVar("--pe-status-teal"),
+  hr: cssVar("--pe-status-red"),
+  elevation: cssVar("--pe-status-green"),
+  cadence: cssVar("--pe-status-yellow"),
+  distance: cssVar("--pe-text-secondary"),
+  start: cssVar("--pe-status-green"),
+  finish: cssVar("--pe-status-red"),
+  zoneRamp: [
+    cssVar("--pe-status-red"),
+    cssVar("--pe-status-orange"),
+    cssVar("--pe-status-yellow"),
+    cssVar("--pe-status-teal"),
+    cssVar("--pe-status-green"),
+  ],
+  grid: cssVar("--pe-border-subtle"),
+  text: cssVar("--pe-text-metadata"),
+  tooltipBg: cssVar("--pe-panel-raised"),
+  tooltipBorder: cssVar("--pe-border-strong"),
+  tooltipText: cssVar("--pe-text-primary"),
 };
 
-const metricDefs = [
-  ["activity_count", "Activities", value => value],
-  ["total_distance_km", "Distance", value => `${round(value, 1)} km`],
-  ["total_duration", "Time", value => value],
-  ["total_ascent_m", "Ascent", value => `${round(value, 0)} m`],
-  ["track_point_count", "GPS Points", value => value],
-];
+const tooltipBase = {
+  backgroundColor: chartColors.tooltipBg,
+  borderColor: chartColors.tooltipBorder,
+  textStyle: { color: chartColors.tooltipText, fontFamily: "Inter, system-ui, sans-serif" },
+};
+const axisLabelBase = { color: chartColors.text, fontFamily: "JetBrains Mono, monospace", fontSize: 10 };
+const legendBase = { textStyle: { color: chartColors.text, fontFamily: "Inter, system-ui, sans-serif", fontWeight: 500 } };
 
-const statDefs = [
-  ["distance_km", "Distance", value => `${round(value, 2)} km`],
-  ["duration_seconds", "Time", formatSeconds],
-  ["avg_pace_seconds_per_km", "Avg Pace", formatPace],
-  ["total_ascent_m", "Ascent", value => `${round(value, 0)} m`],
-  ["calories", "Calories", value => value],
-  ["avg_hr_bpm", "Avg HR", value => `${value} bpm`],
-  ["max_hr_bpm", "Max HR", value => `${value} bpm`],
-  ["moving_time_seconds", "Moving Time", formatSeconds],
-  ["avg_run_cadence_spm", "Cadence", value => `${value} spm`],
-  ["avg_stride_length_m", "Stride", value => `${round(value, 2)} m`],
-  ["device_name", "Device", value => value],
-  ["gear_model", "Gear", value => value],
-];
+async function init() {
+  const [summary, provenance] = await Promise.all([
+    getJSON("/api/summary"),
+    getJSON("/api/provenance"),
+  ]);
+  state.summary = summary;
+  state.provenance = provenance;
+  state.activities = summary.activities || [];
 
-function round(value, digits) {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) return "--";
-  return Number(value).toLocaleString(undefined, { maximumFractionDigits: digits, minimumFractionDigits: digits > 0 ? 1 : 0 });
+  if (location.pathname === "/") {
+    history.replaceState(null, "", "/runs");
+  }
+  await renderFromLocation();
+}
+
+async function getJSON(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Request failed: ${res.status} ${url}`);
+  return res.json();
+}
+
+async function loadDetail(id) {
+  if (!state.detailCache.has(id)) {
+    state.detailCache.set(id, getJSON(`/api/activities/${encodeURIComponent(id)}`));
+  }
+  return state.detailCache.get(id);
+}
+
+async function renderFromLocation() {
+  const parts = location.pathname.split("/").filter(Boolean);
+  if (parts[0] === "runs" && parts[1]) {
+    await renderDetail(parts[1]);
+    return;
+  }
+  await renderOverview();
+}
+
+async function renderOverview() {
+  disposeCharts();
+  const latest = state.activities[0];
+  const latestDetail = latest ? await loadDetail(latest.id) : null;
+  renderShell({
+    activeId: latest?.id,
+    content: overviewTemplate(latest, latestDetail),
+  });
+  renderOverviewCharts(latestDetail);
+}
+
+async function renderDetail(id) {
+  disposeCharts();
+  const detail = await loadDetail(id);
+  renderShell({
+    activeId: id,
+    content: detailTemplate(detail),
+  });
+  renderDetailCharts(detail);
+}
+
+function renderShell({ activeId, content }) {
+  app.className = "";
+  app.innerHTML = `
+    <div class="dashboard-shell">
+      ${railTemplate(activeId)}
+      <main class="stage">${content}</main>
+    </div>
+  `;
+  bindNavigation();
+}
+
+function railTemplate(activeId) {
+  const provenance = state.provenance;
+  return `
+    <aside class="rail">
+      <section class="brand-panel">
+        <div class="brand-row">
+          <div class="brand-mark">G</div>
+          <div class="brand-copy">
+            <h1>Garmin Run Lab</h1>
+            <p>Local SQLite dashboard</p>
+          </div>
+          <span class="status-pill">Live local</span>
+        </div>
+        <div class="provenance-mini">
+          <div class="pipeline-line">
+            ${pipelineStep("Source", "Garmin")}
+            ${pipelineStep("Agent", "CLI")}
+            ${pipelineStep("Store", "SQLite")}
+            ${pipelineStep("View", "Demo")}
+          </div>
+          <dl class="context-list">
+            ${contextRow("Latest capture", formatDateTime(provenance.latest_capture))}
+            ${contextRow("Database", provenance.database)}
+          </dl>
+        </div>
+      </section>
+
+      <section class="activity-rail">
+        <div class="panel-title">
+          <h2>Recorded Runs</h2>
+          <span>${state.activities.length} total</span>
+        </div>
+        <div class="activity-scroll">
+          ${state.activities.map((activity) => activityCard(activity, activity.id === activeId)).join("")}
+        </div>
+      </section>
+    </aside>
+  `;
+}
+
+function pipelineStep(label, value) {
+  return `
+    <div class="pipeline-step">
+      <span class="pipeline-label">${escapeHTML(label)}</span>
+      <strong>${escapeHTML(value)}</strong>
+    </div>
+  `;
+}
+
+function activityCard(activity, active) {
+  return `
+    <button class="activity-card ${active ? "active" : ""}" data-route="/runs/${escapeAttr(activity.id)}">
+      <span class="run-chip green">${escapeHTML(activity.type || "Run")}</span>
+      <span class="activity-name">${escapeHTML(activity.name)}</span>
+      <span class="activity-meta">
+        <span>${formatDate(activity.activity_date)}</span>
+        <span>${formatDistance(activity.distance_km)}</span>
+        <span>${formatSeconds(activity.duration_seconds)}</span>
+        <span>${formatPace(activity.avg_pace_seconds_per_km)}</span>
+      </span>
+    </button>
+  `;
+}
+
+function overviewTemplate(latest, latestDetail) {
+  const summary = state.summary;
+  const provenance = state.provenance;
+  return `
+    <div class="toolbar">
+      <div>
+        <p class="eyebrow">Desktop demo</p>
+        <h1 class="page-title">Runs at a glance</h1>
+        <p class="page-subtitle">
+          Four Garmin activities captured through the generated CLI, normalized into SQLite,
+          and presented as a local dashboard for screenshots and short walkthroughs.
+        </p>
+      </div>
+      <a class="nav-button" href="/runs/${escapeAttr(latest?.id || "")}" data-route="/runs/${escapeAttr(latest?.id || "")}">Open latest run</a>
+    </div>
+
+    ${provenanceStrip(provenance)}
+
+    <section class="summary-grid">
+      ${metricCard("Activities", summary.activity_count, "runs in fixture")}
+      ${metricCard("Distance", `${round(summary.total_distance_km, 1)} km`, dateRange(summary))}
+      ${metricCard("Time", summary.total_duration, "total duration")}
+      ${metricCard("Ascent", `${round(summary.total_ascent_m, 0)} m`, "recorded climb")}
+      ${metricCard("GPS Points", formatInteger(summary.track_point_count), "route samples")}
+    </section>
+
+    <section class="overview-grid">
+      <div class="stack">
+        <section class="panel">
+          <div class="panel-title">
+            <h2>Latest activity</h2>
+            <span>${escapeHTML(latest?.activity_date || "")}</span>
+          </div>
+          <div class="spotlight">
+            <div class="chart route-chart" id="overviewRouteChart"></div>
+            <div class="spotlight-copy">
+              <div>
+                <p class="eyebrow">${escapeHTML(latest?.type || "Run")}</p>
+                <h2 class="spotlight-title">${escapeHTML(latest?.name || "No activity")}</h2>
+                <p class="page-subtitle">${escapeHTML(latest?.device_name || "")}</p>
+              </div>
+              <div class="spotlight-metrics">
+                ${miniStat("Distance", formatDistance(latest?.distance_km))}
+                ${miniStat("Pace", formatPace(latest?.avg_pace_seconds_per_km))}
+                ${miniStat("Avg HR", formatBpm(latest?.avg_hr_bpm))}
+                ${miniStat("Laps", latestDetail?.laps?.length || 0)}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <h2>Training snapshot</h2>
+            <span>distance and heart rate</span>
+          </div>
+          <div class="chart overview-chart" id="overviewTrendChart"></div>
+        </section>
+      </div>
+
+      <aside class="stack">
+        <section class="panel">
+          <div class="panel-title">
+            <h2>Recent runs</h2>
+            <span>${state.activities.length} rows</span>
+          </div>
+          <div class="run-list">
+            ${state.activities.map((activity) => runRow(activity)).join("")}
+          </div>
+        </section>
+      </aside>
+    </section>
+  `;
+}
+
+function detailTemplate(detail) {
+  const { activity, laps, segments, zones, exports } = detail;
+  return `
+    <div class="toolbar">
+      <div>
+        <p class="eyebrow">${escapeHTML(activity.type || "Run")} detail</p>
+        <h1 class="page-title">${escapeHTML(activity.name)}</h1>
+        <p class="page-subtitle">${formatDate(activity.activity_date)} captured from ${escapeHTML(activity.device_name || "Garmin device")}</p>
+      </div>
+      <a class="nav-button" href="/runs" data-route="/runs">All runs</a>
+    </div>
+
+    <section class="hero">
+      <div class="hero-top">
+        <div>
+          <h2 class="hero-title">${escapeHTML(activity.name)}</h2>
+          <div class="hero-meta">
+            <span class="hero-chip">${formatDate(activity.activity_date)}</span>
+            <span class="hero-chip">${formatDistance(activity.distance_km)}</span>
+            <span class="hero-chip">${formatPace(activity.avg_pace_seconds_per_km)}</span>
+            <span class="hero-chip">${formatBpm(activity.avg_hr_bpm)} avg</span>
+          </div>
+        </div>
+        <div class="export-row">
+          ${exports.map((item) => exportLink(activity.id, item)).join("")}
+        </div>
+      </div>
+    </section>
+
+    <section class="key-metrics">
+      ${metricCard("Distance", formatDistance(activity.distance_km), "total")}
+      ${metricCard("Time", formatSeconds(activity.duration_seconds), "elapsed")}
+      ${metricCard("Pace", formatPace(activity.avg_pace_seconds_per_km), "average")}
+      ${metricCard("Ascent", `${round(activity.total_ascent_m, 0)} m`, "gain")}
+      ${metricCard("Avg HR", formatBpm(activity.avg_hr_bpm), "heart rate")}
+      ${metricCard("Cadence", formatSpm(activity.avg_run_cadence_spm), "average")}
+      ${metricCard("Calories", formatInteger(activity.calories), "active")}
+    </section>
+
+    <section class="detail-grid">
+      <div class="stack">
+        <section class="panel">
+          <div class="panel-title">
+            <h2>Route</h2>
+            <span>${formatInteger(detail.track.length)} GPS points</span>
+          </div>
+          ${detail.track.length ? '<div class="chart route-chart" id="routeChart"></div>' : '<div class="empty-state">No GPS track points recorded</div>'}
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <h2>Performance timeline</h2>
+            <span>elevation, heart rate, cadence</span>
+          </div>
+          <div class="chart telemetry-chart" id="telemetryChart"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <h2>Lap pace</h2>
+            <span>${laps.length} laps</span>
+          </div>
+          <div class="chart laps-chart" id="lapsChart"></div>
+        </section>
+
+        <section class="table-panel">
+          <div class="panel-title">
+            <h2>Lap table</h2>
+            <span>per kilometer view</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Lap</th>
+                  <th>Distance</th>
+                  <th>Time</th>
+                  <th>Pace</th>
+                  <th>Avg HR</th>
+                  <th>Ascent</th>
+                </tr>
+              </thead>
+              <tbody>${laps.map(lapRow).join("")}</tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <aside class="stack">
+        <section class="panel">
+          <div class="panel-title">
+            <h2>Heart-rate zones</h2>
+            <span>${zones.length} zones</span>
+          </div>
+          <div class="chart zones-chart" id="zonesChart"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <h2>Run context</h2>
+            <span>device, gear, weather</span>
+          </div>
+          <dl class="context-list">
+            ${contextRow("Device", activity.device_name)}
+            ${contextRow("Software", activity.device_software)}
+            ${contextRow("Gear", activity.gear_model || activity.gear_name)}
+            ${contextRow("Gear usage", activity.gear_usage)}
+            ${contextRow("Weather", activity.weather_temperature)}
+            ${contextRow("Wind", activity.weather_wind)}
+            ${contextRow("Captured", formatDateTime(activity.captured_at))}
+            ${contextRow("Garmin URL", activity.url ? `<a class="export-link" href="${escapeAttr(activity.url)}" target="_blank" rel="noreferrer">Open</a>` : "--", true)}
+          </dl>
+        </section>
+
+        <section class="table-panel">
+          <div class="panel-title">
+            <h2>Segments</h2>
+            <span>${segments.length} entries</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Segment</th>
+                  <th>Time</th>
+                  <th>Pace</th>
+                </tr>
+              </thead>
+              <tbody>${segments.length ? segments.map(segmentRow).join("") : '<tr><td colspan="4">No segments recorded</td></tr>'}</tbody>
+            </table>
+          </div>
+        </section>
+
+        ${provenanceStrip(state.provenance)}
+      </aside>
+    </section>
+  `;
+}
+
+function provenanceStrip(provenance) {
+  return `
+    <section class="pipeline-strip">
+      <div>
+        <h2>Garmin profile -> generated CLI -> SQLite -> local dashboard</h2>
+        <p>Latest capture ${formatDateTime(provenance.latest_capture)} from ${escapeHTML(provenance.database)}.</p>
+      </div>
+      ${pipelineMetric("Runs", provenance.activity_count)}
+      ${pipelineMetric("GPS points", formatInteger(provenance.track_point_count))}
+      ${pipelineMetric("Exports", formatInteger(provenance.export_count))}
+      ${pipelineMetric("Bundles", formatInteger(provenance.source_bundle_count))}
+    </section>
+  `;
+}
+
+function metricCard(label, value, note) {
+  return `
+    <article class="metric-card">
+      <div class="metric-label">${escapeHTML(label)}</div>
+      <div class="metric-value">${escapeHTML(value ?? "--")}</div>
+      <div class="metric-note">${escapeHTML(note ?? "")}</div>
+    </article>
+  `;
+}
+
+function miniStat(label, value) {
+  return `
+    <div class="mini-stat">
+      <span>${escapeHTML(label)}</span>
+      <strong>${escapeHTML(value ?? "--")}</strong>
+    </div>
+  `;
+}
+
+function pipelineMetric(label, value) {
+  return `
+    <div class="pipeline-metric">
+      <span>${escapeHTML(label)}</span>
+      <strong>${escapeHTML(value ?? "--")}</strong>
+    </div>
+  `;
+}
+
+function runRow(activity) {
+  return `
+    <a class="run-card" href="/runs/${escapeAttr(activity.id)}" data-route="/runs/${escapeAttr(activity.id)}">
+      <div>
+        <div class="run-title">${escapeHTML(activity.name)}</div>
+        <div class="run-meta">${formatDate(activity.activity_date)} | ${escapeHTML(activity.device_name || "")}</div>
+      </div>
+      ${runKpi("Distance", formatDistance(activity.distance_km))}
+      ${runKpi("Time", formatSeconds(activity.duration_seconds))}
+      ${runKpi("Pace", formatPace(activity.avg_pace_seconds_per_km))}
+      ${runKpi("HR", formatBpm(activity.avg_hr_bpm))}
+    </a>
+  `;
+}
+
+function runKpi(label, value) {
+  return `
+    <div class="run-kpi">
+      <span>${escapeHTML(label)}</span>
+      <strong>${escapeHTML(value ?? "--")}</strong>
+    </div>
+  `;
+}
+
+function contextRow(label, value, raw = false) {
+  const display = value === null || value === undefined || value === "" ? "--" : value;
+  return `
+    <div class="context-row">
+      <dt>${escapeHTML(label)}</dt>
+      <dd>${raw ? display : escapeHTML(display)}</dd>
+    </div>
+  `;
+}
+
+function lapRow(lap) {
+  return `
+    <tr>
+      <td>${escapeHTML(lap.lap_number ?? "--")}</td>
+      <td>${formatDistance(lap.distance_km)}</td>
+      <td>${formatSeconds(lap.time_seconds)}</td>
+      <td>${formatPace(lap.avg_pace_seconds_per_km)}</td>
+      <td>${formatBpm(lap.avg_hr_bpm)}</td>
+      <td>${round(lap.total_ascent_m, 0)} m</td>
+    </tr>
+  `;
+}
+
+function segmentRow(segment) {
+  return `
+    <tr>
+      <td>${escapeHTML(segment.rank || "--")}</td>
+      <td>${escapeHTML(segment.name || "--")}</td>
+      <td>${formatSeconds(segment.time_seconds)}</td>
+      <td>${formatPace(segment.pace_seconds_per_km)}</td>
+    </tr>
+  `;
+}
+
+function exportLink(activityId, item) {
+  return `
+    <a class="export-link" href="/api/activities/${escapeAttr(activityId)}/exports/${escapeAttr(item.id)}">
+      ${escapeHTML(exportLabel(item.kind))}
+    </a>
+  `;
+}
+
+function bindNavigation() {
+  document.querySelectorAll("[data-route]").forEach((node) => {
+    node.addEventListener("click", (event) => {
+      const route = node.getAttribute("data-route");
+      if (!route) return;
+      event.preventDefault();
+      navigate(route);
+    });
+  });
+}
+
+async function navigate(route) {
+  if (route === location.pathname) return;
+  history.pushState(null, "", route);
+  await renderFromLocation();
+}
+
+window.addEventListener("popstate", () => {
+  renderFromLocation().catch(showError);
+});
+
+window.addEventListener("resize", () => {
+  state.charts.forEach((chart) => chart.resize());
+});
+
+function renderOverviewCharts(latestDetail) {
+  if (latestDetail?.track?.length) {
+    renderRouteChart("overviewRouteChart", latestDetail.track);
+  }
+  renderOverviewTrendChart("overviewTrendChart", state.activities);
+}
+
+function renderDetailCharts(detail) {
+  if (detail.track.length) {
+    renderRouteChart("routeChart", detail.track);
+  }
+  renderTelemetryChart("telemetryChart", detail.track);
+  renderLapsChart("lapsChart", detail.laps);
+  renderZonesChart("zonesChart", detail.zones);
+}
+
+function chart(id) {
+  const node = document.getElementById(id);
+  if (!node || typeof echarts === "undefined") return null;
+  const instance = echarts.init(node, null, { renderer: "canvas" });
+  state.charts.push(instance);
+  return instance;
+}
+
+function disposeCharts() {
+  state.charts.forEach((instance) => instance.dispose());
+  state.charts = [];
+}
+
+function renderRouteChart(id, track) {
+  const instance = chart(id);
+  if (!instance || !track.length) return;
+  const line = track.map((point) => [point.lon, point.lat]);
+  const start = line[0];
+  const end = line[line.length - 1];
+
+  instance.setOption({
+    backgroundColor: "transparent",
+    animationDuration: 900,
+    grid: { left: 8, right: 8, top: 8, bottom: 8 },
+    tooltip: {
+      trigger: "item",
+      ...tooltipBase,
+      formatter: (params) => {
+        const value = params.value || [];
+        return `${params.seriesName}<br>${Number(value[1]).toFixed(5)}, ${Number(value[0]).toFixed(5)}`;
+      },
+    },
+    xAxis: routeAxis(),
+    yAxis: routeAxis(),
+    series: [
+      {
+        name: "GPS route",
+        type: "line",
+        data: line,
+        symbol: "none",
+        smooth: true,
+        lineStyle: { width: 3, color: chartColors.route },
+      },
+      {
+        name: "Start",
+        type: "scatter",
+        data: [start],
+        symbolSize: 12,
+        itemStyle: { color: chartColors.start },
+      },
+      {
+        name: "Finish",
+        type: "scatter",
+        data: [end],
+        symbolSize: 12,
+        itemStyle: { color: chartColors.finish },
+      },
+    ],
+  });
+}
+
+function routeAxis() {
+  return {
+    type: "value",
+    scale: true,
+    axisLine: { show: false },
+    axisTick: { show: false },
+    axisLabel: { show: false },
+    splitLine: { show: false },
+  };
+}
+
+function renderTelemetryChart(id, track) {
+  const instance = chart(id);
+  if (!instance || !track.length) return;
+  const enriched = enrichTrack(track);
+  instance.setOption({
+    backgroundColor: "transparent",
+    color: [chartColors.elevation, chartColors.hr, chartColors.cadence],
+    tooltip: {
+      trigger: "axis",
+      ...tooltipBase,
+      valueFormatter: (value) => (value === null || value === undefined ? "--" : round(value, 0)),
+    },
+    legend: {
+      top: 0,
+      right: 8,
+      ...legendBase,
+      itemWidth: 10,
+      itemHeight: 10,
+    },
+    grid: { left: 44, right: 58, top: 42, bottom: 34 },
+    xAxis: axis("Distance km", (value) => round(value, 1)),
+    yAxis: [
+      metricAxis("m", 0),
+      metricAxis("bpm", 1),
+      metricAxis("spm", 2),
+    ],
+    series: [
+      {
+        name: "Elevation",
+        type: "line",
+        yAxisIndex: 0,
+        data: enriched.map((point) => [point.distance_km, point.elevation_m]),
+        symbol: "none",
+        smooth: true,
+        lineStyle: { width: 2 },
+      },
+      {
+        name: "Heart rate",
+        type: "line",
+        yAxisIndex: 1,
+        data: enriched.map((point) => [point.distance_km, point.hr_bpm]),
+        symbol: "none",
+        smooth: true,
+        lineStyle: { width: 2 },
+      },
+      {
+        name: "Cadence",
+        type: "line",
+        yAxisIndex: 2,
+        data: enriched.map((point) => [point.distance_km, point.cadence_spm]),
+        symbol: "none",
+        smooth: true,
+        lineStyle: { width: 2 },
+      },
+    ],
+  });
+}
+
+function renderLapsChart(id, laps) {
+  const instance = chart(id);
+  if (!instance || !laps.length) return;
+  const labels = laps.map((lap) => `L${lap.lap_number}`);
+  instance.setOption({
+    backgroundColor: "transparent",
+    color: [chartColors.distance, chartColors.hr],
+    tooltip: {
+      trigger: "axis",
+      ...tooltipBase,
+      formatter: (params) => {
+        const pace = params.find((item) => item.seriesName === "Pace");
+        const hr = params.find((item) => item.seriesName === "Avg HR");
+        return `${params[0].axisValue}<br>Pace: ${formatPace(pace?.value)}<br>Avg HR: ${formatBpm(hr?.value)}`;
+      },
+    },
+    legend: { top: 0, right: 8, ...legendBase },
+    grid: { left: 50, right: 44, top: 42, bottom: 34 },
+    xAxis: {
+      type: "category",
+      data: labels,
+      axisLine: { lineStyle: { color: chartColors.grid } },
+      axisTick: { show: false },
+      axisLabel: axisLabelBase,
+    },
+    yAxis: [
+      {
+        type: "value",
+        inverse: true,
+        axisLabel: { ...axisLabelBase, formatter: (value) => formatPace(value).replace(" /km", "") },
+        splitLine: { lineStyle: { color: chartColors.grid } },
+      },
+      {
+        type: "value",
+        axisLabel: axisLabelBase,
+        splitLine: { show: false },
+      },
+    ],
+    series: [
+      {
+        name: "Pace",
+        type: "bar",
+        data: laps.map((lap) => lap.avg_pace_seconds_per_km),
+        barMaxWidth: 18,
+        itemStyle: { borderRadius: [4, 4, 0, 0] },
+      },
+      {
+        name: "Avg HR",
+        type: "line",
+        yAxisIndex: 1,
+        data: laps.map((lap) => lap.avg_hr_bpm),
+        symbolSize: 6,
+        lineStyle: { width: 2 },
+      },
+    ],
+  });
+}
+
+function renderZonesChart(id, zones) {
+  const instance = chart(id);
+  if (!instance || !zones.length) return;
+  const ordered = [...zones].sort((a, b) => b.zone_number - a.zone_number);
+  instance.setOption({
+    backgroundColor: "transparent",
+    tooltip: {
+      trigger: "axis",
+      axisPointer: { type: "shadow" },
+      ...tooltipBase,
+      formatter: (params) => {
+        const zone = ordered[params[0].dataIndex];
+        return `Zone ${zone.zone_number}<br>${formatSeconds(zone.time_seconds)}<br>${round(zone.percent, 0)}%`;
+      },
+    },
+    grid: { left: 54, right: 16, top: 12, bottom: 24 },
+    xAxis: {
+      type: "value",
+      max: 100,
+      axisLabel: { ...axisLabelBase, formatter: "{value}%" },
+      splitLine: { lineStyle: { color: chartColors.grid } },
+    },
+    yAxis: {
+      type: "category",
+      data: ordered.map((zone) => `Z${zone.zone_number}`),
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: axisLabelBase,
+    },
+    series: [
+      {
+        type: "bar",
+        data: ordered.map((zone, index) => ({
+          value: zone.percent || 0,
+          itemStyle: { color: chartColors.zoneRamp[index % chartColors.zoneRamp.length] },
+        })),
+        barMaxWidth: 14,
+        itemStyle: { borderRadius: [0, 4, 4, 0] },
+      },
+    ],
+  });
+}
+
+function renderOverviewTrendChart(id, activities) {
+  const instance = chart(id);
+  if (!instance || !activities.length) return;
+  const ordered = [...activities].reverse();
+  instance.setOption({
+    backgroundColor: "transparent",
+    color: [chartColors.distance, chartColors.hr],
+    tooltip: { trigger: "axis", ...tooltipBase },
+    legend: { top: 0, right: 8, ...legendBase },
+    grid: { left: 42, right: 48, top: 42, bottom: 34 },
+    xAxis: {
+      type: "category",
+      data: ordered.map((activity) => shortDate(activity.activity_date)),
+      axisLine: { lineStyle: { color: chartColors.grid } },
+      axisTick: { show: false },
+      axisLabel: axisLabelBase,
+    },
+    yAxis: [
+      {
+        type: "value",
+        name: "km",
+        nameTextStyle: { color: chartColors.text, fontFamily: "JetBrains Mono, monospace", fontSize: 10 },
+        axisLabel: axisLabelBase,
+        splitLine: { lineStyle: { color: chartColors.grid } },
+      },
+      {
+        type: "value",
+        name: "bpm",
+        nameTextStyle: { color: chartColors.text, fontFamily: "JetBrains Mono, monospace", fontSize: 10 },
+        axisLabel: axisLabelBase,
+        splitLine: { show: false },
+      },
+    ],
+    series: [
+      {
+        name: "Distance",
+        type: "bar",
+        data: ordered.map((activity) => activity.distance_km),
+        barMaxWidth: 36,
+        itemStyle: { borderRadius: [5, 5, 0, 0] },
+      },
+      {
+        name: "Avg HR",
+        type: "line",
+        yAxisIndex: 1,
+        data: ordered.map((activity) => activity.avg_hr_bpm),
+        symbolSize: 8,
+        lineStyle: { width: 3 },
+      },
+    ],
+  });
+}
+
+function axis(name, formatter) {
+  return {
+    type: "value",
+    name,
+    nameTextStyle: { color: chartColors.text, fontFamily: "JetBrains Mono, monospace", fontSize: 10 },
+    axisLine: { lineStyle: { color: chartColors.grid } },
+    axisTick: { show: false },
+    axisLabel: { ...axisLabelBase, formatter },
+    splitLine: { lineStyle: { color: chartColors.grid } },
+  };
+}
+
+function metricAxis(name, index) {
+  return {
+    type: "value",
+    name,
+    position: index === 0 ? "left" : "right",
+    offset: index === 2 ? 42 : 0,
+    nameTextStyle: { color: chartColors.text, fontFamily: "JetBrains Mono, monospace", fontSize: 10 },
+    axisLabel: axisLabelBase,
+    splitLine: { show: index === 0, lineStyle: { color: chartColors.grid } },
+  };
+}
+
+function enrichTrack(track) {
+  let distance = 0;
+  let previous = null;
+  return track.map((point) => {
+    if (previous) distance += haversineKm(previous, point);
+    previous = point;
+    return {
+      ...point,
+      distance_km: Number(distance.toFixed(3)),
+    };
+  });
+}
+
+function haversineKm(a, b) {
+  const radiusKm = 6371;
+  const dLat = radians(b.lat - a.lat);
+  const dLon = radians(b.lon - a.lon);
+  const lat1 = radians(a.lat);
+  const lat2 = radians(b.lat);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  return 2 * radiusKm * Math.asin(Math.sqrt(h));
+}
+
+function radians(value) {
+  return (Number(value) * Math.PI) / 180;
 }
 
 function formatSeconds(value) {
-  if (value === null || value === undefined) return "--";
+  if (value === null || value === undefined || value === "") return "--";
   let seconds = Math.round(Number(value));
   const hours = Math.floor(seconds / 3600);
   seconds %= 3600;
   const minutes = Math.floor(seconds / 60);
   const rest = seconds % 60;
-  return hours ? `${hours}:${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}` : `${minutes}:${String(rest).padStart(2, "0")}`;
+  return hours
+    ? `${hours}:${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}`
+    : `${minutes}:${String(rest).padStart(2, "0")}`;
 }
 
 function formatPace(value) {
+  if (value === null || value === undefined || value === "") return "--";
   return `${formatSeconds(value)} /km`;
 }
 
-async function getJSON(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-  return res.json();
+function formatDistance(value) {
+  if (value === null || value === undefined || value === "") return "--";
+  return `${round(value, 2)} km`;
 }
 
-async function init() {
-  state.summary = await getJSON("/api/summary");
-  state.activities = state.summary.activities;
-  state.selectedId = state.activities[0]?.id;
-  renderSummary();
-  renderActivityList();
-  if (state.selectedId) await selectActivity(state.selectedId);
+function formatBpm(value) {
+  if (value === null || value === undefined || value === "") return "--";
+  return `${Math.round(Number(value))} bpm`;
 }
 
-function renderSummary() {
-  el.rangeLabel.textContent = `${state.summary.first_date} to ${state.summary.last_date}`;
-  el.summaryGrid.innerHTML = metricDefs.map(([key, label, format]) => `
-    <article class="metric-card">
-      <div class="metric-label">${label}</div>
-      <div class="metric-value">${format(state.summary[key])}</div>
-    </article>
-  `).join("");
+function formatSpm(value) {
+  if (value === null || value === undefined || value === "") return "--";
+  return `${Math.round(Number(value))} spm`;
 }
 
-function renderActivityList() {
-  el.activityCount.textContent = `${state.activities.length} runs`;
-  el.activityButtons.innerHTML = state.activities.map(activity => `
-    <button class="activity-button ${activity.id === state.selectedId ? "active" : ""}" data-id="${activity.id}">
-      <span class="activity-name">${activity.name}</span>
-      <span class="activity-meta">
-        <span>${activity.activity_date}</span>
-        <span>${round(activity.distance_km, 2)} km</span>
-        <span>${formatSeconds(activity.duration_seconds)}</span>
-        <span>${formatPace(activity.avg_pace_seconds_per_km)}</span>
-      </span>
-    </button>
-  `).join("");
-  el.activityButtons.querySelectorAll("button").forEach(button => {
-    button.addEventListener("click", () => selectActivity(button.dataset.id));
+function formatInteger(value) {
+  if (value === null || value === undefined || value === "") return "--";
+  return Number(value).toLocaleString();
+}
+
+function round(value, digits) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return "--";
+  return Number(value).toLocaleString(undefined, {
+    maximumFractionDigits: digits,
+    minimumFractionDigits: digits > 0 ? 1 : 0,
   });
 }
 
-async function selectActivity(id) {
-  state.selectedId = id;
-  renderActivityList();
-  state.selectedDetail = await getJSON(`/api/activities/${id}`);
-  renderDetail();
+function formatDate(value) {
+  if (!value) return "--";
+  return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(new Date(`${value}T00:00:00`));
 }
 
-function renderDetail() {
-  const { activity, laps, segments, zones, track, exports } = state.selectedDetail;
-  el.selectedDate.textContent = activity.activity_date;
-  el.selectedTitle.textContent = activity.name;
-  el.exportRow.innerHTML = exports.map(item => `
-    <a class="export-link" href="/api/activities/${activity.id}/exports/${item.id}">${exportLabel(item.kind)}</a>
-  `).join("");
-  renderRoute(track);
-  renderStats(activity);
-  renderZones(zones);
-  renderLapsChart(laps);
-  renderSegments(segments);
+function shortDate(value) {
+  if (!value) return "--";
+  return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(`${value}T00:00:00`));
+}
+
+function formatDateTime(value) {
+  if (!value) return "--";
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function dateRange(summary) {
+  if (!summary.first_date || !summary.last_date) return "";
+  return `${shortDate(summary.first_date)} to ${shortDate(summary.last_date)}`;
 }
 
 function exportLabel(kind) {
@@ -135,118 +952,27 @@ function exportLabel(kind) {
   }[kind] || kind;
 }
 
-function renderStats(activity) {
-  el.statsList.innerHTML = statDefs.map(([key, label, format]) => {
-    const value = activity[key];
-    return `
-      <div>
-        <dt>${label}</dt>
-        <dd>${value === null || value === undefined || value === "" ? "--" : format(value)}</dd>
-      </div>
-    `;
-  }).join("");
+function escapeHTML(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
-function renderZones(zones) {
-  el.zonesList.innerHTML = zones.map(zone => `
-    <div class="zone-row">
-      <strong>Zone ${zone.zone_number}</strong>
-      <div class="zone-bar"><div class="zone-fill" style="width:${Math.max(0, Math.min(100, zone.percent || 0))}%"></div></div>
-      <span>${round(zone.percent, 0)}%</span>
+function escapeAttr(value) {
+  return escapeHTML(value);
+}
+
+function showError(error) {
+  app.className = "";
+  app.innerHTML = `
+    <div class="error-state">
+      <h1>Dashboard failed to load</h1>
+      <pre>${escapeHTML(error.stack || error.message || error)}</pre>
     </div>
-  `).join("");
-}
-
-function renderRoute(track) {
-  if (!track.length) {
-    el.routeMap.innerHTML = "";
-    return;
-  }
-  const width = 900;
-  const height = 360;
-  const pad = 24;
-  const lats = track.map(point => point.lat);
-  const lons = track.map(point => point.lon);
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLon = Math.min(...lons);
-  const maxLon = Math.max(...lons);
-  const latRange = maxLat - minLat || 1;
-  const lonRange = maxLon - minLon || 1;
-  const scale = Math.min((width - pad * 2) / lonRange, (height - pad * 2) / latRange);
-  const routeWidth = lonRange * scale;
-  const routeHeight = latRange * scale;
-  const offsetX = (width - routeWidth) / 2;
-  const offsetY = (height - routeHeight) / 2;
-  const points = track.map(point => {
-    const x = offsetX + (point.lon - minLon) * scale;
-    const y = offsetY + (maxLat - point.lat) * scale;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(" ");
-  const start = points.split(" ")[0];
-  const end = points.split(" ").at(-1);
-  el.routeMap.innerHTML = `
-    <rect x="0" y="0" width="${width}" height="${height}" fill="#e9eef0"></rect>
-    <polyline points="${points}" fill="none" stroke="#257c5a" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></polyline>
-    <circle cx="${start.split(",")[0]}" cy="${start.split(",")[1]}" r="7" fill="#2f6fb0"></circle>
-    <circle cx="${end.split(",")[0]}" cy="${end.split(",")[1]}" r="7" fill="#b2473f"></circle>
   `;
 }
 
-function renderLapsChart(laps) {
-  const canvas = el.lapsChart;
-  const ctx = canvas.getContext("2d");
-  const width = canvas.width;
-  const height = canvas.height;
-  ctx.clearRect(0, 0, width, height);
-  if (!laps.length) return;
-
-  const values = laps.map(lap => lap.avg_pace_seconds_per_km).filter(value => value);
-  const min = Math.min(...values) - 8;
-  const max = Math.max(...values) + 8;
-  const left = 46;
-  const right = 20;
-  const top = 18;
-  const bottom = 36;
-  const plotW = width - left - right;
-  const plotH = height - top - bottom;
-
-  ctx.strokeStyle = "#dce3e6";
-  ctx.lineWidth = 1;
-  for (let i = 0; i <= 4; i += 1) {
-    const y = top + (plotH / 4) * i;
-    ctx.beginPath();
-    ctx.moveTo(left, y);
-    ctx.lineTo(width - right, y);
-    ctx.stroke();
-  }
-
-  const barW = plotW / laps.length * 0.68;
-  laps.forEach((lap, index) => {
-    const value = lap.avg_pace_seconds_per_km || max;
-    const x = left + index * (plotW / laps.length) + (plotW / laps.length - barW) / 2;
-    const barH = ((max - value) / (max - min)) * plotH;
-    const y = top + plotH - barH;
-    ctx.fillStyle = index % 2 ? "#2f6fb0" : "#257c5a";
-    ctx.fillRect(x, y, barW, barH);
-  });
-
-  ctx.fillStyle = "#65737a";
-  ctx.font = "13px system-ui";
-  ctx.fillText("Faster", 4, top + 10);
-  ctx.fillText("Slower", 4, height - bottom);
-}
-
-function renderSegments(segments) {
-  el.segmentsTable.innerHTML = segments.map(segment => `
-    <tr>
-      <td>${segment.name || "--"}</td>
-      <td>${formatSeconds(segment.time_seconds)}</td>
-      <td>${formatPace(segment.pace_seconds_per_km)}</td>
-    </tr>
-  `).join("");
-}
-
-init().catch(error => {
-  document.body.innerHTML = `<pre>${error.stack || error}</pre>`;
-});
+init().catch(showError);
