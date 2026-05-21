@@ -2,7 +2,7 @@
  * Garmin demo — restyled against Register A (Product-Evidence).
  * No hex codes here. Every color reads through a --pe-* token defined in
  * /register-a/styles/tokens.css. Accent (orange) is used only on .nav-button
- * (primary CTA) and .activity-card.active::before (cursor on active row).
+ * (primary CTA).
  */
 
 * {
@@ -46,35 +46,21 @@ button {
   text-transform: uppercase;
 }
 
-/* ---------- Shell ---------- */
+/* ---------- Shells ---------- */
 
-.dashboard-shell {
-  display: grid;
-  grid-template-columns: 330px minmax(0, 1fr);
-  gap: 20px;
+.list-shell,
+.detail-shell {
   max-width: 1520px;
   min-height: 100vh;
   margin: 0 auto;
-  padding: 22px;
-}
-
-.rail {
-  position: sticky;
-  top: 22px;
-  height: calc(100vh - 44px);
-  display: grid;
-  grid-template-rows: auto 1fr;
-  gap: 14px;
+  padding: 28px 22px 48px;
 }
 
 /* ---------- Panel surfaces ---------- */
 
-.brand-panel,
-.activity-rail,
 .panel,
-.hero,
 .metric-card,
-.run-card,
+.run-tile,
 .pipeline-strip,
 .table-panel {
   position: relative;
@@ -85,12 +71,9 @@ button {
   overflow: hidden;
 }
 
-.brand-panel::before,
-.activity-rail::before,
 .panel::before,
-.hero::before,
 .metric-card::before,
-.run-card::before,
+.run-tile::before,
 .pipeline-strip::before,
 .table-panel::before {
   content: "";
@@ -102,194 +85,14 @@ button {
   z-index: 1;
 }
 
-/* ---------- Brand / header ---------- */
+/* ---------- Toolbar (shared heading row) ---------- */
 
-.brand-panel {
-  padding: 18px;
-}
-
-.brand-row,
-.panel-title,
-.hero-top,
-.export-row,
 .toolbar {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 12px;
-}
-
-.brand-mark {
-  display: grid;
-  width: 42px;
-  height: 42px;
-  place-items: center;
-  border: 1px solid var(--pe-border-subtle);
-  border-radius: 10px;
-  color: var(--pe-text-secondary);
-  background-color: var(--pe-chip-raised);
-  font-family: var(--pe-font-mono);
-  font-weight: 500;
-  font-size: 18px;
-}
-
-.brand-copy h1 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  line-height: 1.1;
-  color: var(--pe-text-primary);
-}
-
-.brand-copy p {
-  margin: 4px 0 0;
-  color: var(--pe-text-metadata);
-  font-family: var(--pe-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-}
-
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: var(--pe-radius-chip);
-  border: 1px solid var(--pe-border-subtle);
-  background-color: var(--pe-chip-raised);
-  color: var(--pe-text-secondary);
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.status-pill::before {
-  content: "";
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: var(--pe-status-green);
-}
-
-.provenance-mini {
-  display: grid;
-  gap: 12px;
-  margin-top: 18px;
-}
-
-.pipeline-line {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-}
-
-.pipeline-step {
-  min-height: 48px;
-  padding: 9px;
-  border: 1px solid var(--pe-border-subtle);
-  border-radius: 10px;
-  background-color: var(--pe-panel-deep);
-}
-
-.pipeline-label {
-  display: block;
-  color: var(--pe-text-dim);
-  font-family: var(--pe-font-mono);
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.pipeline-step strong {
-  display: block;
-  margin-top: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--pe-text-secondary);
-}
-
-/* ---------- Activity rail ---------- */
-
-.activity-rail {
-  min-height: 0;
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-}
-
-.activity-scroll {
-  display: grid;
-  gap: 8px;
-  min-height: 0;
-  flex: 1;
-  margin-top: 12px;
-  overflow: auto;
-  padding-right: 4px;
-}
-
-.activity-card {
-  position: relative;
-  width: 100%;
-  min-height: 116px;
-  padding: 13px 13px 13px 15px;
-  border: 1px solid var(--pe-border-subtle);
-  border-radius: 12px;
-  color: var(--pe-text-secondary);
-  text-align: left;
-  cursor: pointer;
-  background-color: transparent;
-  transition: background 140ms ease, border-color 140ms ease;
-}
-
-.activity-card:hover {
-  background-color: var(--pe-panel-deep);
-  border-color: var(--pe-border-strong);
-}
-
-.activity-card.active {
-  background-color: var(--pe-panel-selected);
-  border-color: var(--pe-border-strong);
-  color: var(--pe-text-primary);
-}
-
-/* Bounded accent: 2px cursor on the active row. */
-.activity-card.active::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 12px;
-  bottom: 12px;
-  width: 2px;
-  background-color: var(--pe-accent);
-  border-radius: 2px;
-}
-
-.activity-name {
-  display: block;
-  margin: 10px 0 10px;
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.25;
-  color: var(--pe-text-primary);
-}
-
-.activity-meta {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px 10px;
-  color: var(--pe-text-metadata);
-  font-size: 12px;
-  font-weight: 400;
-}
-
-/* ---------- Stage / headings ---------- */
-
-.stage {
-  min-width: 0;
-}
-
-.toolbar {
   margin-bottom: 18px;
-  align-items: flex-end;
 }
 
 .eyebrow {
@@ -320,7 +123,8 @@ button {
   line-height: 1.5;
 }
 
-/* Primary CTA: bounded accent, .pe-send styled. */
+/* ---------- Navigation buttons ---------- */
+
 .nav-button {
   display: inline-flex;
   align-items: center;
@@ -337,13 +141,13 @@ button {
   font-weight: 500;
   letter-spacing: -0.005em;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .nav-button:hover {
   background-color: var(--pe-accent-muted-1);
 }
 
-/* Secondary nav (e.g., "All runs" back-link) — neutral, no accent. */
 .nav-button[href="/runs"] {
   background-color: var(--pe-chip-raised);
   color: var(--pe-text-secondary);
@@ -355,14 +159,16 @@ button {
   color: var(--pe-text-primary);
 }
 
-/* ---------- Metric cards ---------- */
+/* ---------- Page 1: digest header ---------- */
 
-.summary-grid {
+.digest-header {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 14px;
 }
+
+/* ---------- Metric cards ---------- */
 
 .metric-card {
   min-height: 104px;
@@ -394,79 +200,79 @@ button {
   font-weight: 400;
 }
 
-/* ---------- Layout grids ---------- */
+/* ---------- Page 1: tile grid ---------- */
 
-.overview-grid,
-.detail-grid {
+.tile-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) 380px;
-  gap: 14px;
-  align-items: start;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
-.detail-grid {
-  grid-template-columns: minmax(0, 1fr) 348px;
-}
-
-.panel,
-.table-panel {
-  padding: 0;
-}
-
-.panel-title {
-  padding: 16px 20px 12px;
-  margin-bottom: 0;
-}
-
-.panel-title h2,
-.panel-title h3 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
+.run-tile {
+  width: 100%;
+  padding: 20px;
+  text-align: left;
+  cursor: pointer;
+  background-color: var(--pe-panel-raised);
   color: var(--pe-text-primary);
+  transition: background 140ms ease, border-color 140ms ease;
 }
 
-.panel-title span {
+.run-tile:hover {
+  background-color: var(--pe-panel-selected);
+  border-color: var(--pe-border-strong);
+}
+
+.run-tile-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.run-tile-date {
   color: var(--pe-text-metadata);
   font-family: var(--pe-font-mono);
   font-size: 11px;
+  font-weight: 500;
   letter-spacing: 0.04em;
 }
 
-.panel > .chart,
-.panel > .spotlight,
-.panel > .run-list,
-.panel > .empty-state,
-.panel > dl,
-.table-panel > .table-wrap {
-  margin: 0 16px 16px;
-}
-
-/* ---------- Hero (detail) ---------- */
-
-.hero {
-  margin-bottom: 14px;
-  padding: 22px;
-}
-
-.hero-title {
-  margin: 0;
-  font-size: 24px;
+.run-tile-name {
+  margin: 14px 0 16px;
+  font-size: 20px;
   font-weight: 600;
-  line-height: 1.15;
-  letter-spacing: -0.012em;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
   color: var(--pe-text-primary);
 }
 
-.hero-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 12px;
+.run-tile-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
 }
 
-/* Chips: neutral, no accent. */
-.hero-chip,
+.run-tile-stat span {
+  display: block;
+  color: var(--pe-text-metadata);
+  font-family: var(--pe-font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.run-tile-stat strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--pe-text-primary);
+}
+
+/* ---------- Run type chip ---------- */
+
 .run-chip {
   display: inline-flex;
   align-items: center;
@@ -474,24 +280,21 @@ button {
   padding: 4px 10px;
   border: 1px solid var(--pe-border-subtle);
   border-radius: var(--pe-radius-chip);
-  color: var(--pe-text-secondary);
+  color: var(--pe-text-metadata);
   background-color: var(--pe-chip-raised);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
-  line-height: 1.2;
   white-space: nowrap;
 }
 
-.run-chip.green {
-  color: var(--pe-text-metadata);
-  background-color: var(--pe-chip-raised);
-  border-color: var(--pe-border-subtle);
-}
+/* ---------- Export links ---------- */
 
 .export-row {
-  justify-content: flex-end;
+  display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
+  justify-content: flex-end;
 }
 
 .export-link {
@@ -515,74 +318,13 @@ button {
   color: var(--pe-text-primary);
 }
 
-/* ---------- Charts ---------- */
+/* ---------- Page 2: 3-column layout ---------- */
 
-.chart { width: 100%; }
-.route-chart { height: 430px; }
-.telemetry-chart { height: 318px; }
-.laps-chart { height: 292px; }
-.zones-chart { height: 270px; }
-.overview-chart { height: 300px; }
-
-/* ---------- Spotlight ---------- */
-
-.spotlight {
-  position: relative;
-  min-height: 430px;
-}
-
-.spotlight-copy {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  bottom: 16px;
-  width: 310px;
+.detail-3col {
   display: grid;
-  align-content: space-between;
-  padding: 18px;
-  border: 1px solid var(--pe-border-subtle);
-  border-radius: 14px;
-  background-color: rgba(15, 16, 17, 0.86);
-  backdrop-filter: blur(8px);
-}
-
-.spotlight-title {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 600;
-  letter-spacing: -0.012em;
-  color: var(--pe-text-primary);
-}
-
-.spotlight-metrics {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-}
-
-.mini-stat {
-  padding: 12px;
-  border: 1px solid var(--pe-border-subtle);
-  border-radius: 10px;
-  background-color: var(--pe-panel-deep);
-}
-
-.mini-stat span {
-  display: block;
-  color: var(--pe-text-metadata);
-  font-family: var(--pe-font-mono);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.mini-stat strong {
-  display: block;
-  margin-top: 7px;
-  font-size: 17px;
-  font-weight: 600;
-  color: var(--pe-text-primary);
+  grid-template-columns: 300px minmax(0, 1fr) 300px;
+  gap: 14px;
+  align-items: start;
 }
 
 .stack {
@@ -590,20 +332,83 @@ button {
   gap: 14px;
 }
 
-/* ---------- Pipeline strip ---------- */
+/* Left column: compact metric cards */
+.left-col.stack {
+  gap: 10px;
+}
+
+.left-col .metric-card {
+  min-height: 72px;
+  padding: 12px 14px;
+}
+
+.left-col .metric-value {
+  margin-top: 8px;
+  font-size: 20px;
+}
+
+/* ---------- Panel internals ---------- */
+
+.panel,
+.table-panel {
+  padding: 0;
+}
+
+.panel-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px 12px;
+}
+
+.panel-title h2,
+.panel-title h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--pe-text-primary);
+}
+
+.panel-title span {
+  color: var(--pe-text-metadata);
+  font-family: var(--pe-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.panel > .chart,
+.panel > .empty-state,
+.panel > dl,
+.table-panel > .table-wrap {
+  margin: 0 16px 16px;
+}
+
+/* ---------- Charts ---------- */
+
+.chart { width: 100%; }
+.route-chart { height: 500px; }
+.telemetry-chart { height: 318px; }
+.laps-chart { height: 292px; }
+.zones-chart { height: 270px; }
+
+/* ---------- Pipeline / provenance strip ---------- */
 
 .pipeline-strip {
   display: grid;
-  grid-template-columns: 1.1fr repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
   align-items: stretch;
-  margin-bottom: 14px;
   padding: 16px;
+}
+
+.pipeline-strip > div:first-child {
+  grid-column: 1 / -1;
 }
 
 .pipeline-strip h2 {
   margin: 0;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--pe-text-primary);
   letter-spacing: -0.005em;
@@ -640,26 +445,16 @@ button {
   color: var(--pe-text-primary);
 }
 
-.detail-grid aside .pipeline-strip {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.detail-grid aside .pipeline-strip > div:first-child {
-  grid-column: 1 / -1;
-}
-
 /* ---------- Definition lists ---------- */
 
-.context-list,
-.stats-list {
+.context-list {
   display: grid;
   gap: 0;
   margin: 0 16px 16px;
   padding: 0;
 }
 
-.context-row,
-.metric-row {
+.context-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -669,13 +464,11 @@ button {
   border-bottom: 1px solid var(--pe-border-subtle);
 }
 
-.context-row:last-child,
-.metric-row:last-child {
+.context-row:last-child {
   border-bottom: 0;
 }
 
-.context-row dt,
-.metric-row dt {
+.context-row dt {
   color: var(--pe-text-metadata);
   font-family: var(--pe-font-mono);
   font-size: 11px;
@@ -683,8 +476,7 @@ button {
   letter-spacing: 0.04em;
 }
 
-.context-row dd,
-.metric-row dd {
+.context-row dd {
   margin: 0;
   max-width: 180px;
   overflow-wrap: anywhere;
@@ -698,25 +490,6 @@ button {
   color: var(--pe-text-secondary);
   text-decoration: none;
   border-bottom: 1px solid var(--pe-border-strong);
-}
-
-/* ---------- Key metrics on detail ---------- */
-
-.key-metrics {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 8px;
-  margin-bottom: 14px;
-}
-
-.key-metrics .metric-card {
-  min-height: 96px;
-  padding: 14px;
-}
-
-.key-metrics .metric-value {
-  font-size: 20px;
-  margin-top: 10px;
 }
 
 /* ---------- Tables ---------- */
@@ -762,67 +535,6 @@ td {
 
 tr:last-child td {
   border-bottom: 0;
-}
-
-/* ---------- Run list (overview right column) ---------- */
-
-.run-list {
-  display: grid;
-  gap: 0;
-}
-
-.run-card {
-  display: grid;
-  grid-template-columns: 1fr repeat(4, 90px);
-  gap: 12px;
-  align-items: center;
-  padding: 14px 16px;
-  border: 0;
-  border-top: 1px solid var(--pe-border-subtle);
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  color: var(--pe-text-secondary);
-  text-decoration: none;
-}
-
-.run-card::before { display: none; }
-.run-card:first-child { border-top: 0; }
-
-.run-card:hover {
-  background-color: var(--pe-panel-deep);
-  color: var(--pe-text-primary);
-}
-
-.run-title {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--pe-text-primary);
-}
-
-.run-meta {
-  margin-top: 4px;
-  color: var(--pe-text-metadata);
-  font-size: 11px;
-  font-weight: 400;
-}
-
-.run-kpi span {
-  display: block;
-  color: var(--pe-text-metadata);
-  font-family: var(--pe-font-mono);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.run-kpi strong {
-  display: block;
-  margin-top: 4px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--pe-text-primary);
 }
 
 /* ---------- Empty / error ---------- */

@@ -43,6 +43,9 @@ class DemoHandler(BaseHTTPRequestHandler):
         if path == "/api/summary":
             self.write_json(self.summary())
             return
+        if path == "/api/provenance":
+            self.write_json(self.provenance())
+            return
         if path == "/api/activities":
             self.write_json(self.activities())
             return
@@ -54,6 +57,9 @@ class DemoHandler(BaseHTTPRequestHandler):
             if len(parts) == 5 and parts[3] == "exports":
                 self.write_export(parts[2], parts[4])
                 return
+        if path == "/runs" or path.startswith("/runs/"):
+            self.write_app_shell()
+            return
         self.write_static(path)
 
     def summary(self):
@@ -78,6 +84,25 @@ class DemoHandler(BaseHTTPRequestHandler):
             summary["export_count"] = conn.execute("SELECT COUNT(*) FROM exports").fetchone()[0]
             summary["activities"] = self.activities(conn)
             return summary
+
+    def provenance(self):
+        with connect() as conn:
+            row = conn.execute(
+                """
+                SELECT
+                  COUNT(*) AS activity_count,
+                  MIN(activity_date) AS first_date,
+                  MAX(activity_date) AS last_date,
+                  MAX(captured_at) AS latest_capture
+                FROM activities
+                """
+            ).fetchone()
+            payload = dict(row)
+            payload["database"] = str(DB_PATH.relative_to(ROOT))
+            payload["track_point_count"] = conn.execute("SELECT COUNT(*) FROM track_points").fetchone()[0]
+            payload["export_count"] = conn.execute("SELECT COUNT(*) FROM exports").fetchone()[0]
+            payload["source_bundle_count"] = len(list((ROOT / "source-data").glob("*.zip")))
+            return payload
 
     def activities(self, conn=None):
         close_conn = conn is None
@@ -141,6 +166,9 @@ class DemoHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Disposition", f'attachment; filename="{row["filename"]}"')
             self.end_headers()
             self.wfile.write(payload)
+
+    def write_app_shell(self):
+        self.write_static("/")
 
     def write_json(self, payload):
         if payload is None:

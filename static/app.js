@@ -79,103 +79,27 @@ async function renderFromLocation() {
 
 async function renderOverview() {
   disposeCharts();
-  const latest = state.activities[0];
-  const latestDetail = latest ? await loadDetail(latest.id) : null;
-  renderShell({
-    activeId: latest?.id,
-    content: overviewTemplate(latest, latestDetail),
-  });
-  renderOverviewCharts(latestDetail);
+  renderShell({ mode: "list", content: overviewTemplate() });
 }
 
 async function renderDetail(id) {
   disposeCharts();
   const detail = await loadDetail(id);
-  renderShell({
-    activeId: id,
-    content: detailTemplate(detail),
-  });
+  renderShell({ mode: "detail", content: detailTemplate(detail) });
   renderDetailCharts(detail);
 }
 
-function renderShell({ activeId, content }) {
+function renderShell({ mode, content }) {
   app.className = "";
-  app.innerHTML = `
-    <div class="dashboard-shell">
-      ${railTemplate(activeId)}
-      <main class="stage">${content}</main>
-    </div>
-  `;
+  const cls = mode === "list" ? "list-shell" : "detail-shell";
+  app.innerHTML = `<div class="${cls}">${content}</div>`;
   bindNavigation();
 }
 
-function railTemplate(activeId) {
-  const provenance = state.provenance;
-  return `
-    <aside class="rail">
-      <section class="brand-panel">
-        <div class="brand-row">
-          <div class="brand-mark">G</div>
-          <div class="brand-copy">
-            <h1>Garmin Run Lab</h1>
-            <p>Local SQLite dashboard</p>
-          </div>
-          <span class="status-pill">Live local</span>
-        </div>
-        <div class="provenance-mini">
-          <div class="pipeline-line">
-            ${pipelineStep("Source", "Garmin")}
-            ${pipelineStep("Agent", "CLI")}
-            ${pipelineStep("Store", "SQLite")}
-            ${pipelineStep("View", "Demo")}
-          </div>
-          <dl class="context-list">
-            ${contextRow("Latest capture", formatDateTime(provenance.latest_capture))}
-            ${contextRow("Database", provenance.database)}
-          </dl>
-        </div>
-      </section>
+// ---------- Page 1: Run List ----------
 
-      <section class="activity-rail">
-        <div class="panel-title">
-          <h2>Recorded Runs</h2>
-          <span>${state.activities.length} total</span>
-        </div>
-        <div class="activity-scroll">
-          ${state.activities.map((activity) => activityCard(activity, activity.id === activeId)).join("")}
-        </div>
-      </section>
-    </aside>
-  `;
-}
-
-function pipelineStep(label, value) {
-  return `
-    <div class="pipeline-step">
-      <span class="pipeline-label">${escapeHTML(label)}</span>
-      <strong>${escapeHTML(value)}</strong>
-    </div>
-  `;
-}
-
-function activityCard(activity, active) {
-  return `
-    <button class="activity-card ${active ? "active" : ""}" data-route="/runs/${escapeAttr(activity.id)}">
-      <span class="run-chip green">${escapeHTML(activity.type || "Run")}</span>
-      <span class="activity-name">${escapeHTML(activity.name)}</span>
-      <span class="activity-meta">
-        <span>${formatDate(activity.activity_date)}</span>
-        <span>${formatDistance(activity.distance_km)}</span>
-        <span>${formatSeconds(activity.duration_seconds)}</span>
-        <span>${formatPace(activity.avg_pace_seconds_per_km)}</span>
-      </span>
-    </button>
-  `;
-}
-
-function overviewTemplate(latest, latestDetail) {
+function overviewTemplate() {
   const summary = state.summary;
-  const provenance = state.provenance;
   return `
     <div class="toolbar">
       <div>
@@ -186,109 +110,87 @@ function overviewTemplate(latest, latestDetail) {
           and presented as a local dashboard for screenshots and short walkthroughs.
         </p>
       </div>
-      <a class="nav-button" href="/runs/${escapeAttr(latest?.id || "")}" data-route="/runs/${escapeAttr(latest?.id || "")}">Open latest run</a>
     </div>
 
-    ${provenanceStrip(provenance)}
-
-    <section class="summary-grid">
-      ${metricCard("Activities", summary.activity_count, "runs in fixture")}
+    <div class="digest-header">
+      ${metricCard("Runs", summary.activity_count, "activities")}
       ${metricCard("Distance", `${round(summary.total_distance_km, 1)} km`, dateRange(summary))}
       ${metricCard("Time", summary.total_duration, "total duration")}
+      ${metricCard("Avg HR", `${round(summary.avg_hr_bpm, 0)} bpm`, "heart rate")}
       ${metricCard("Ascent", `${round(summary.total_ascent_m, 0)} m`, "recorded climb")}
       ${metricCard("GPS Points", formatInteger(summary.track_point_count), "route samples")}
-    </section>
+    </div>
 
-    <section class="overview-grid">
-      <div class="stack">
-        <section class="panel">
-          <div class="panel-title">
-            <h2>Latest activity</h2>
-            <span>${escapeHTML(latest?.activity_date || "")}</span>
-          </div>
-          <div class="spotlight">
-            <div class="chart route-chart" id="overviewRouteChart"></div>
-            <div class="spotlight-copy">
-              <div>
-                <p class="eyebrow">${escapeHTML(latest?.type || "Run")}</p>
-                <h2 class="spotlight-title">${escapeHTML(latest?.name || "No activity")}</h2>
-                <p class="page-subtitle">${escapeHTML(latest?.device_name || "")}</p>
-              </div>
-              <div class="spotlight-metrics">
-                ${miniStat("Distance", formatDistance(latest?.distance_km))}
-                ${miniStat("Pace", formatPace(latest?.avg_pace_seconds_per_km))}
-                ${miniStat("Avg HR", formatBpm(latest?.avg_hr_bpm))}
-                ${miniStat("Laps", latestDetail?.laps?.length || 0)}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-title">
-            <h2>Training snapshot</h2>
-            <span>distance and heart rate</span>
-          </div>
-          <div class="chart overview-chart" id="overviewTrendChart"></div>
-        </section>
-      </div>
-
-      <aside class="stack">
-        <section class="panel">
-          <div class="panel-title">
-            <h2>Recent runs</h2>
-            <span>${state.activities.length} rows</span>
-          </div>
-          <div class="run-list">
-            ${state.activities.map((activity) => runRow(activity)).join("")}
-          </div>
-        </section>
-      </aside>
-    </section>
+    <div class="tile-grid">
+      ${state.activities.map(runTile).join("")}
+    </div>
   `;
 }
 
+function runTile(activity) {
+  return `
+    <button class="run-tile" data-route="/runs/${escapeAttr(activity.id)}">
+      <div class="run-tile-top">
+        <span class="run-chip">${escapeHTML(activity.type || "Run")}</span>
+        <span class="run-tile-date">${formatDate(activity.activity_date)}</span>
+      </div>
+      <div class="run-tile-name">${escapeHTML(activity.name)}</div>
+      <div class="run-tile-stats">
+        ${runTileStat("Distance", formatDistance(activity.distance_km))}
+        ${runTileStat("Time", formatSeconds(activity.duration_seconds))}
+        ${runTileStat("Pace", formatPace(activity.avg_pace_seconds_per_km))}
+        ${runTileStat("Avg HR", formatBpm(activity.avg_hr_bpm))}
+      </div>
+    </button>
+  `;
+}
+
+function runTileStat(label, value) {
+  return `
+    <div class="run-tile-stat">
+      <span>${escapeHTML(label)}</span>
+      <strong>${escapeHTML(value ?? "--")}</strong>
+    </div>
+  `;
+}
+
+// ---------- Page 2: Run Detail ----------
+
 function detailTemplate(detail) {
-  const { activity, laps, segments, zones, exports } = detail;
+  const { activity, laps, segments, zones, exports: exps } = detail;
   return `
     <div class="toolbar">
       <div>
         <p class="eyebrow">${escapeHTML(activity.type || "Run")} detail</p>
         <h1 class="page-title">${escapeHTML(activity.name)}</h1>
-        <p class="page-subtitle">${formatDate(activity.activity_date)} captured from ${escapeHTML(activity.device_name || "Garmin device")}</p>
+        <p class="page-subtitle">${formatDate(activity.activity_date)} · captured from ${escapeHTML(activity.device_name || "Garmin device")}</p>
+      </div>
+      <div class="export-row">
+        ${exps.map((item) => exportLink(activity.id, item)).join("")}
       </div>
       <a class="nav-button" href="/runs" data-route="/runs">All runs</a>
     </div>
 
-    <section class="hero">
-      <div class="hero-top">
-        <div>
-          <h2 class="hero-title">${escapeHTML(activity.name)}</h2>
-          <div class="hero-meta">
-            <span class="hero-chip">${formatDate(activity.activity_date)}</span>
-            <span class="hero-chip">${formatDistance(activity.distance_km)}</span>
-            <span class="hero-chip">${formatPace(activity.avg_pace_seconds_per_km)}</span>
-            <span class="hero-chip">${formatBpm(activity.avg_hr_bpm)} avg</span>
+    <div class="detail-3col">
+
+      <div class="left-col stack">
+        ${metricCard("Distance", formatDistance(activity.distance_km), "total")}
+        ${metricCard("Time", formatSeconds(activity.duration_seconds), "elapsed")}
+        ${metricCard("Pace", formatPace(activity.avg_pace_seconds_per_km), "average")}
+        ${metricCard("Ascent", `${round(activity.total_ascent_m, 0)} m`, "gain")}
+        ${metricCard("Avg HR", formatBpm(activity.avg_hr_bpm), "heart rate")}
+        ${metricCard("Cadence", formatSpm(activity.avg_run_cadence_spm), "average")}
+        ${metricCard("Calories", formatInteger(activity.calories), "active")}
+        <section class="panel">
+          <div class="panel-title">
+            <h2>Heart-rate zones</h2>
+            <span>${zones.length} zones</span>
           </div>
-        </div>
-        <div class="export-row">
-          ${exports.map((item) => exportLink(activity.id, item)).join("")}
-        </div>
+          <div class="chart zones-chart" id="zonesChart"></div>
+        </section>
       </div>
-    </section>
 
-    <section class="key-metrics">
-      ${metricCard("Distance", formatDistance(activity.distance_km), "total")}
-      ${metricCard("Time", formatSeconds(activity.duration_seconds), "elapsed")}
-      ${metricCard("Pace", formatPace(activity.avg_pace_seconds_per_km), "average")}
-      ${metricCard("Ascent", `${round(activity.total_ascent_m, 0)} m`, "gain")}
-      ${metricCard("Avg HR", formatBpm(activity.avg_hr_bpm), "heart rate")}
-      ${metricCard("Cadence", formatSpm(activity.avg_run_cadence_spm), "average")}
-      ${metricCard("Calories", formatInteger(activity.calories), "active")}
-    </section>
-
-    <section class="detail-grid">
-      <div class="stack">
+      <div class="center-col stack">
         <section class="panel">
           <div class="panel-title">
             <h2>Route</h2>
@@ -296,7 +198,6 @@ function detailTemplate(detail) {
           </div>
           ${detail.track.length ? '<div class="chart route-chart" id="routeChart"></div>' : '<div class="empty-state">No GPS track points recorded</div>'}
         </section>
-
         <section class="panel">
           <div class="panel-title">
             <h2>Performance timeline</h2>
@@ -304,7 +205,9 @@ function detailTemplate(detail) {
           </div>
           <div class="chart telemetry-chart" id="telemetryChart"></div>
         </section>
+      </div>
 
+      <div class="right-col stack">
         <section class="panel">
           <div class="panel-title">
             <h2>Lap pace</h2>
@@ -312,7 +215,6 @@ function detailTemplate(detail) {
           </div>
           <div class="chart laps-chart" id="lapsChart"></div>
         </section>
-
         <section class="table-panel">
           <div class="panel-title">
             <h2>Lap table</h2>
@@ -334,34 +236,6 @@ function detailTemplate(detail) {
             </table>
           </div>
         </section>
-      </div>
-
-      <aside class="stack">
-        <section class="panel">
-          <div class="panel-title">
-            <h2>Heart-rate zones</h2>
-            <span>${zones.length} zones</span>
-          </div>
-          <div class="chart zones-chart" id="zonesChart"></div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-title">
-            <h2>Run context</h2>
-            <span>device, gear, weather</span>
-          </div>
-          <dl class="context-list">
-            ${contextRow("Device", activity.device_name)}
-            ${contextRow("Software", activity.device_software)}
-            ${contextRow("Gear", activity.gear_model || activity.gear_name)}
-            ${contextRow("Gear usage", activity.gear_usage)}
-            ${contextRow("Weather", activity.weather_temperature)}
-            ${contextRow("Wind", activity.weather_wind)}
-            ${contextRow("Captured", formatDateTime(activity.captured_at))}
-            ${contextRow("Garmin URL", activity.url ? `<a class="export-link" href="${escapeAttr(activity.url)}" target="_blank" rel="noreferrer">Open</a>` : "--", true)}
-          </dl>
-        </section>
-
         <section class="table-panel">
           <div class="panel-title">
             <h2>Segments</h2>
@@ -381,18 +255,36 @@ function detailTemplate(detail) {
             </table>
           </div>
         </section>
-
+        <section class="panel">
+          <div class="panel-title">
+            <h2>Run context</h2>
+            <span>device, gear, weather</span>
+          </div>
+          <dl class="context-list">
+            ${contextRow("Device", activity.device_name)}
+            ${contextRow("Software", activity.device_software)}
+            ${contextRow("Gear", activity.gear_model || activity.gear_name)}
+            ${contextRow("Gear usage", activity.gear_usage)}
+            ${contextRow("Weather", activity.weather_temperature)}
+            ${contextRow("Wind", activity.weather_wind)}
+            ${contextRow("Captured", formatDateTime(activity.captured_at))}
+            ${contextRow("Garmin URL", activity.url ? `<a class="export-link" href="${escapeAttr(activity.url)}" target="_blank" rel="noreferrer">Open</a>` : "--", true)}
+          </dl>
+        </section>
         ${provenanceStrip(state.provenance)}
-      </aside>
-    </section>
+      </div>
+
+    </div>
   `;
 }
+
+// ---------- Shared components ----------
 
 function provenanceStrip(provenance) {
   return `
     <section class="pipeline-strip">
       <div>
-        <h2>Garmin profile -> generated CLI -> SQLite -> local dashboard</h2>
+        <h2>Garmin profile → generated CLI → SQLite → local dashboard</h2>
         <p>Latest capture ${formatDateTime(provenance.latest_capture)} from ${escapeHTML(provenance.database)}.</p>
       </div>
       ${pipelineMetric("Runs", provenance.activity_count)}
@@ -413,42 +305,9 @@ function metricCard(label, value, note) {
   `;
 }
 
-function miniStat(label, value) {
-  return `
-    <div class="mini-stat">
-      <span>${escapeHTML(label)}</span>
-      <strong>${escapeHTML(value ?? "--")}</strong>
-    </div>
-  `;
-}
-
 function pipelineMetric(label, value) {
   return `
     <div class="pipeline-metric">
-      <span>${escapeHTML(label)}</span>
-      <strong>${escapeHTML(value ?? "--")}</strong>
-    </div>
-  `;
-}
-
-function runRow(activity) {
-  return `
-    <a class="run-card" href="/runs/${escapeAttr(activity.id)}" data-route="/runs/${escapeAttr(activity.id)}">
-      <div>
-        <div class="run-title">${escapeHTML(activity.name)}</div>
-        <div class="run-meta">${formatDate(activity.activity_date)} | ${escapeHTML(activity.device_name || "")}</div>
-      </div>
-      ${runKpi("Distance", formatDistance(activity.distance_km))}
-      ${runKpi("Time", formatSeconds(activity.duration_seconds))}
-      ${runKpi("Pace", formatPace(activity.avg_pace_seconds_per_km))}
-      ${runKpi("HR", formatBpm(activity.avg_hr_bpm))}
-    </a>
-  `;
-}
-
-function runKpi(label, value) {
-  return `
-    <div class="run-kpi">
       <span>${escapeHTML(label)}</span>
       <strong>${escapeHTML(value ?? "--")}</strong>
     </div>
@@ -497,6 +356,8 @@ function exportLink(activityId, item) {
   `;
 }
 
+// ---------- Navigation ----------
+
 function bindNavigation() {
   document.querySelectorAll("[data-route]").forEach((node) => {
     node.addEventListener("click", (event) => {
@@ -519,15 +380,10 @@ window.addEventListener("popstate", () => {
 });
 
 window.addEventListener("resize", () => {
-  state.charts.forEach((chart) => chart.resize());
+  state.charts.forEach((c) => c.resize());
 });
 
-function renderOverviewCharts(latestDetail) {
-  if (latestDetail?.track?.length) {
-    renderRouteChart("overviewRouteChart", latestDetail.track);
-  }
-  renderOverviewTrendChart("overviewTrendChart", state.activities);
-}
+// ---------- Charts ----------
 
 function renderDetailCharts(detail) {
   if (detail.track.length) {
@@ -769,59 +625,6 @@ function renderZonesChart(id, zones) {
   });
 }
 
-function renderOverviewTrendChart(id, activities) {
-  const instance = chart(id);
-  if (!instance || !activities.length) return;
-  const ordered = [...activities].reverse();
-  instance.setOption({
-    backgroundColor: "transparent",
-    color: [chartColors.distance, chartColors.hr],
-    tooltip: { trigger: "axis", ...tooltipBase },
-    legend: { top: 0, right: 8, ...legendBase },
-    grid: { left: 42, right: 48, top: 42, bottom: 34 },
-    xAxis: {
-      type: "category",
-      data: ordered.map((activity) => shortDate(activity.activity_date)),
-      axisLine: { lineStyle: { color: chartColors.grid } },
-      axisTick: { show: false },
-      axisLabel: axisLabelBase,
-    },
-    yAxis: [
-      {
-        type: "value",
-        name: "km",
-        nameTextStyle: { color: chartColors.text, fontFamily: "JetBrains Mono, monospace", fontSize: 10 },
-        axisLabel: axisLabelBase,
-        splitLine: { lineStyle: { color: chartColors.grid } },
-      },
-      {
-        type: "value",
-        name: "bpm",
-        nameTextStyle: { color: chartColors.text, fontFamily: "JetBrains Mono, monospace", fontSize: 10 },
-        axisLabel: axisLabelBase,
-        splitLine: { show: false },
-      },
-    ],
-    series: [
-      {
-        name: "Distance",
-        type: "bar",
-        data: ordered.map((activity) => activity.distance_km),
-        barMaxWidth: 36,
-        itemStyle: { borderRadius: [5, 5, 0, 0] },
-      },
-      {
-        name: "Avg HR",
-        type: "line",
-        yAxisIndex: 1,
-        data: ordered.map((activity) => activity.avg_hr_bpm),
-        symbolSize: 8,
-        lineStyle: { width: 3 },
-      },
-    ],
-  });
-}
-
 function axis(name, formatter) {
   return {
     type: "value",
@@ -845,6 +648,8 @@ function metricAxis(name, index) {
     splitLine: { show: index === 0, lineStyle: { color: chartColors.grid } },
   };
 }
+
+// ---------- Data utilities ----------
 
 function enrichTrack(track) {
   let distance = 0;
@@ -872,6 +677,8 @@ function haversineKm(a, b) {
 function radians(value) {
   return (Number(value) * Math.PI) / 180;
 }
+
+// ---------- Formatters ----------
 
 function formatSeconds(value) {
   if (value === null || value === undefined || value === "") return "--";
