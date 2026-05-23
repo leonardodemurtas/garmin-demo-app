@@ -81,7 +81,10 @@ async function renderFromLocation() {
 async function renderOverview() {
   disposeCharts();
   disposeMap();
-  renderShell({ mode: "list", content: overviewTemplate() });
+  const latestActivity = state.activities[0];
+  const latestDetail = latestActivity ? await loadDetail(latestActivity.id) : null;
+  renderShell({ mode: "list", content: overviewTemplate(latestDetail) });
+  bindAgentRunRead();
 }
 
 async function renderDetail(id) {
@@ -92,6 +95,7 @@ async function renderDetail(id) {
   renderLeafletMap(detail.track);
   renderDetailCharts(detail);
   bindCollapsibles();
+  bindAgentRunRead();
 }
 
 function renderShell({ mode, content }) {
@@ -103,7 +107,7 @@ function renderShell({ mode, content }) {
 
 // ---------- Page 1: Run List ----------
 
-function overviewTemplate() {
+function overviewTemplate(latestDetail) {
   const summary = state.summary;
   return `
     <div class="toolbar">
@@ -127,6 +131,7 @@ function overviewTemplate() {
     </div>
 
     <div class="run-list">
+      ${latestDetail ? agentRunReadCard(buildRecentAgentRunRead(latestDetail), "list-agent-read-card") : ""}
       ${state.activities.map(runTile).join("")}
     </div>
   `;
@@ -135,19 +140,16 @@ function overviewTemplate() {
 function runTile(activity) {
   return `
     <button class="run-tile" data-route="/runs/${escapeAttr(activity.id)}">
-      <div class="run-tile-left">
-        <span class="run-chip">${escapeHTML(activity.type || "Run")}</span>
-        <div class="run-tile-name">${escapeHTML(activity.name)}</div>
+      <span class="run-chip">${escapeHTML(activity.type || "Run")}</span>
+      <div class="run-tile-name">${escapeHTML(activity.name)}</div>
+      <span class="run-tile-date">${formatDate(activity.activity_date)}</span>
+      <div class="run-tile-stats">
+        ${runTileStat("Distance", formatDistance(activity.distance_km))}
+        ${runTileStat("Time", formatSeconds(activity.duration_seconds))}
+        ${runTileStat("Pace", formatPace(activity.avg_pace_seconds_per_km))}
+        ${runTileStat("Avg HR", formatBpm(activity.avg_hr_bpm))}
       </div>
-      <div class="run-tile-right">
-        <span class="run-tile-date">${formatDate(activity.activity_date)}</span>
-        <div class="run-tile-stats">
-          ${runTileStat("Distance", formatDistance(activity.distance_km))}
-          ${runTileStat("Time", formatSeconds(activity.duration_seconds))}
-          ${runTileStat("Pace", formatPace(activity.avg_pace_seconds_per_km))}
-          ${runTileStat("Avg HR", formatBpm(activity.avg_hr_bpm))}
-        </div>
-      </div>
+      <span class="run-tile-arrow" aria-hidden="true">&#8250;</span>
     </button>
   `;
 }
@@ -175,23 +177,25 @@ function detailTemplate(detail) {
     <div class="detail-spread">
 
       <div class="left-col stack">
-        <section class="panel">
+        <section class="panel zones-panel">
           <div class="panel-title">
             <h2>Heart-rate zones</h2>
             <span>${zones.length} zones</span>
           </div>
-          <div class="chart zones-chart" id="zonesChart"></div>
+          ${zoneList(zones)}
         </section>
-        ${metricCard("Avg HR", formatBpm(activity.avg_hr_bpm), "heart rate")}
-        ${metricCard("Distance", formatDistance(activity.distance_km), "total")}
-        ${metricCard("Time", formatSeconds(activity.duration_seconds), "elapsed")}
-        ${metricCard("Pace", formatPace(activity.avg_pace_seconds_per_km), "average")}
-        ${metricCard("Ascent", `${round(activity.total_ascent_m, 0)} m`, "gain")}
-        ${metricCard("Cadence", formatSpm(activity.avg_run_cadence_spm), "average")}
-        ${metricCard("Calories", formatInteger(activity.calories), "active")}
+        <div class="kpi-grid">
+          ${metricCard("Avg HR", formatBpm(activity.avg_hr_bpm), "heart rate")}
+          ${metricCard("Distance", formatDistance(activity.distance_km), "total")}
+          ${metricCard("Time", formatSeconds(activity.duration_seconds), "elapsed")}
+          ${metricCard("Pace", formatPace(activity.avg_pace_seconds_per_km), "average")}
+          ${metricCard("Ascent", `${round(activity.total_ascent_m, 0)} m`, "gain")}
+          ${metricCard("Cadence", formatSpm(activity.avg_run_cadence_spm), "average")}
+        </div>
       </div>
 
       <div class="right-col stack">
+        ${agentRunReadCard(buildActivityAgentRunRead(detail), "activity-agent-read-card")}
         <section class="panel collapsible">
           <div class="panel-title">
             <h2>Performance timeline</h2>
@@ -271,17 +275,431 @@ function detailTemplate(detail) {
 // ---------- Shared components ----------
 
 function provenanceStrip(provenance) {
+  const detail = [
+    provenance?.latest_capture ? `Latest capture ${formatDateTime(provenance.latest_capture)}` : "",
+    provenance?.database ? `from ${provenance.database}.` : "",
+  ].filter(Boolean).join(" ");
+  const metrics = [
+    ["Runs", provenance?.activity_count],
+    ["GPS points", provenance?.track_point_count],
+    ["Exports", provenance?.export_count],
+    ["Bundles", provenance?.source_bundle_count],
+  ].filter(([, value]) => value !== null && value !== undefined && value !== "");
   return `
-    <section class="pipeline-strip">
-      <div>
-        <h2>Garmin profile → generated CLI → SQLite → local dashboard</h2>
-        <p>Latest capture ${formatDateTime(provenance.latest_capture)} from ${escapeHTML(provenance.database)}.</p>
-      </div>
-      ${pipelineMetric("Runs", provenance.activity_count)}
-      ${pipelineMetric("GPS points", formatInteger(provenance.track_point_count))}
-      ${pipelineMetric("Exports", formatInteger(provenance.export_count))}
-      ${pipelineMetric("Bundles", formatInteger(provenance.source_bundle_count))}
+    <section class="pipeline-strip" aria-label="Dashboard provenance">
+      <span class="pipeline-copy">
+        <span class="pipeline-flow">Garmin profile → generated CLI → SQLite → local dashboard</span>
+        ${detail ? `<span class="pipeline-detail">${escapeHTML(detail)}</span>` : ""}
+      </span>
+      ${metrics.length ? `<span class="pipeline-stats">${metrics.map(([label, value]) => pipelineMetric(label, value)).join("")}</span>` : ""}
+      <span class="pipeline-map-controls" aria-label="Map zoom controls">
+        <button type="button" data-action="zoom-out" title="Zoom out">&#8722;</button>
+        <button type="button" data-action="zoom-in" title="Zoom in">&#43;</button>
+      </span>
     </section>
+  `;
+}
+
+function agentRunReadCard(read, className = "") {
+  return `
+    <section class="agent-read-card ${escapeAttr(className)}" data-agent-read>
+      <button class="agent-read-toggle" type="button" aria-expanded="false">
+        <span class="agent-read-heading">
+          <span class="agent-read-dot" aria-hidden="true"></span>
+          <span class="agent-read-title">Agent run read</span>
+          <span class="agent-read-chip">READ-ONLY</span>
+        </span>
+        <span class="agent-read-toggle-icon" aria-hidden="true">+</span>
+      </button>
+      <div class="agent-read-closed">
+        <div class="agent-read-verdict">${escapeHTML(read.verdict)}</div>
+        ${read.closedSummary ? `<p>${escapeHTML(read.closedSummary)}</p>` : ""}
+        <div class="agent-read-meta">${escapeHTML(read.meta)}</div>
+      </div>
+      <div class="agent-read-expanded">
+        <div class="agent-read-expanded-inner">
+          <div class="agent-read-chip-row">
+            ${read.chips.map((chip) => `<span class="agent-read-chip">${escapeHTML(chip)}</span>`).join("")}
+          </div>
+          <div class="agent-read-verdict">${escapeHTML(read.verdict)}</div>
+          ${read.openSummary ? `<p class="agent-read-summary">${escapeHTML(read.openSummary)}</p>` : ""}
+          ${read.sections.map(agentReadSectionBlock).join("")}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function agentReadSectionBlock(section) {
+  if (section.type === "metrics") {
+    const visibleItems = section.items.filter((item) => item.value);
+    if (!visibleItems.length && !section.note) return "";
+    return `
+      <div class="agent-read-section">
+        <h3>${escapeHTML(section.title)}</h3>
+        ${visibleItems.length ? `
+          <div class="agent-read-metrics">
+            ${visibleItems.map((item) => `
+              <span class="agent-read-metric">
+                <strong>${escapeHTML(item.value)}</strong>
+                <span>${escapeHTML(item.label)}</span>
+              </span>
+            `).join("")}
+          </div>
+        ` : ""}
+        ${section.note ? `<p>${escapeHTML(section.note)}</p>` : ""}
+      </div>
+    `;
+  }
+  if (section.type === "text") {
+    const paragraphs = section.paragraphs.filter(Boolean);
+    if (!paragraphs.length) return "";
+    return `
+      <div class="agent-read-section">
+        <h3>${escapeHTML(section.title)}</h3>
+        ${paragraphs.map((paragraph) => `<p>${escapeHTML(paragraph)}</p>`).join("")}
+      </div>
+    `;
+  }
+  if (section.type === "callout") {
+    if (!section.body) return "";
+    return `
+      <div class="agent-read-section">
+        <h3>${escapeHTML(section.title)}</h3>
+        <p class="agent-read-next">${escapeHTML(section.body)}</p>
+      </div>
+    `;
+  }
+  if (section.type === "boundary") {
+    return `
+      <div class="agent-read-section agent-read-boundary">
+        <h3>${escapeHTML(section.title)}</h3>
+        ${section.summary ? `<p>${escapeHTML(section.summary)}</p>` : ""}
+        <div class="agent-boundary-list">
+          ${section.items.map((item) => `<span>${escapeHTML(item)}</span>`).join("")}
+        </div>
+      </div>
+    `;
+  }
+  return agentReadListSection(section.title, section.items || [], section.body);
+}
+
+function agentReadListSection(title, items, body = "") {
+  const visibleItems = items.filter(Boolean);
+  if (!visibleItems.length && !body) return "";
+  return `
+    <div class="agent-read-section">
+      <h3>${escapeHTML(title)}</h3>
+      ${body ? `<p>${escapeHTML(body)}</p>` : ""}
+      ${visibleItems.length ? `
+        <ul>
+          ${visibleItems.map((item) => `<li>${escapeHTML(item)}</li>`).join("")}
+        </ul>
+      ` : ""}
+    </div>
+  `;
+}
+
+function buildRecentAgentRunRead(detail) {
+  const activity = detail.activity;
+  const zones = detail.zones || [];
+  const recent = state.activities || [];
+  const previous = previousActivity(activity, recent);
+  const z2 = zonePercent(zones, 2);
+  const z4 = zonePercent(zones, 4);
+  const z5 = zonePercent(zones, 5);
+  const distance = valueOrEmpty(formatDistance(activity.distance_km));
+  const pace = compactPace(activity.avg_pace_seconds_per_km);
+  const avgHr = activity.avg_hr_bpm;
+  const cadence = activity.avg_run_cadence_spm;
+  const ascent = activity.total_ascent_m;
+  const recentCount = recent.length || state.summary?.activity_count || 0;
+  const contextLabel = recentCount ? `${recentCount}-run context` : "recent context";
+  const meta = recentCount ? `Generated from latest activity + last ${recentCount} runs` : "Generated from latest activity + recent runs";
+
+  return {
+    verdict: "Controlled aerobic build",
+    closedSummary: closedRecentAgentSummary(distance, pace, z2, avgHr),
+    openSummary: openRecentAgentSummary(distance, pace, z2, z4, z5),
+    meta,
+    chips: ["READ-ONLY", contextLabel, "Garmin data"],
+    sections: [
+      { title: "What happened", items: whatHappenedItems(activity, previous, cadence, ascent) },
+      { title: "Pattern detected", items: patternItems(recent, state.summary) },
+      {
+        type: "callout",
+        title: "Next best move",
+        body: "Do not stack another medium-long steady run tomorrow. Either take an easy recovery day, or make the next quality session clearly different: shorter, sharper, and intentionally higher intensity.",
+      },
+      agentBoundarySection("Generated from Garmin activity data and recent run history."),
+    ],
+  };
+}
+
+function buildActivityAgentRunRead(detail) {
+  const activity = detail.activity;
+  const zones = detail.zones || [];
+  const z2 = zonePercent(zones, 2);
+  const z3 = zonePercent(zones, 3);
+  const z4 = zonePercent(zones, 4);
+  const z5 = zonePercent(zones, 5);
+  const distance = valueOrEmpty(formatDistance(activity.distance_km));
+  const pace = compactPace(activity.avg_pace_seconds_per_km);
+  const avgHr = activity.avg_hr_bpm;
+  const cadence = activity.avg_run_cadence_spm;
+  const ascent = activity.total_ascent_m;
+
+  return {
+    verdict: "Steady Z2 aerobic run",
+    closedSummary: closedActivityAgentSummary(distance, pace, z2),
+    openSummary: openActivityAgentSummary(activity, pace, avgHr, z2, z4, z5),
+    meta: "Generated from this activity",
+    chips: ["READ-ONLY", "This activity", "Garmin data"],
+    sections: [
+      {
+        type: "metrics",
+        title: "Run overview",
+        items: activityOverviewMetrics(activity),
+        note: routeReadNote(ascent),
+      },
+      {
+        title: "Effort read",
+        body: effortReadCopy(z2, z3, z4, z5),
+        items: effortReadItems(z2, z3, z4, z5),
+      },
+      { title: "What went well", items: whatWentWellItems(activity, z2, z4, z5) },
+      {
+        type: "text",
+        title: "Watch next time",
+        paragraphs: watchNextTimeItems(z2, z3),
+      },
+      {
+        type: "callout",
+        title: "Next best move",
+        body: "Treat this as a successful aerobic build session. The next run should either be clearly easier for recovery, or clearly different if quality is planned. Avoid turning the next session into another medium-hard steady run by default.",
+      },
+      agentBoundarySection("Generated from the selected Garmin activity."),
+    ],
+  };
+}
+
+function agentBoundarySection(summary) {
+  return {
+    type: "boundary",
+    title: "Agent boundary",
+    summary,
+    items: ["Read-only analysis", "No activity edits", "No workout changes", "No schedule changes"],
+  };
+}
+
+function closedRecentAgentSummary(distance, pace, z2, avgHr) {
+  if (!distance || !pace) return "";
+  const zonePhrase = Number.isFinite(z2) ? "mostly Z2" : "a recorded aerobic profile";
+  const hrPhrase = avgHr ? "with stable heart rate" : "with recorded effort data";
+  return `${distance} at ${pace}, ${zonePhrase}, ${hrPhrase}.`;
+}
+
+function openRecentAgentSummary(distance, pace, z2, z4, z5) {
+  if (!distance || !pace) return "";
+  const zonePhrase = Number.isFinite(z2) ? `, with ${z2}% of the run in Z2` : "";
+  const noHardZones = z4 === 0 && z5 === 0 ? " and no time in Z4/Z5" : "";
+  return `${distance} at ${pace}${zonePhrase}${noHardZones}. This reads as a steady aerobic session, not a maximal effort.`;
+}
+
+function closedActivityAgentSummary(distance, pace, z2) {
+  if (!distance || !pace) return "";
+  const zonePhrase = Number.isFinite(z2) ? "with most of the effort held in Z2" : "from the selected Garmin activity";
+  return `${distance} at ${pace}, ${zonePhrase}.`;
+}
+
+function openActivityAgentSummary(activity, pace, avgHr, z2, z4, z5) {
+  const distance = activity.distance_km ? `${round(activity.distance_km, 0)} km` : "recorded";
+  const evidence = [
+    pace ? `${pace} average pace` : "",
+    avgHr ? `${formatBpm(avgHr)} average heart rate` : "",
+    Number.isFinite(z2) ? `${z2}% of time in Z2` : "",
+  ].filter(Boolean);
+  const opening = evidence.length
+    ? `This was a controlled ${distance} aerobic session: ${joinSentenceList(evidence)}.`
+    : `This was a controlled aerobic session recorded from Garmin activity data.`;
+  const noHardZones = z4 === 0 && z5 === 0
+    ? " The absence of Z4/Z5 work supports the intent: durable effort, not a hard session."
+    : "";
+  return `${opening}${noHardZones}`;
+}
+
+function activityOverviewMetrics(activity) {
+  return [
+    { label: "Distance", value: valueOrEmpty(formatDistance(activity.distance_km)) },
+    { label: "Time", value: valueOrEmpty(formatSeconds(activity.duration_seconds)) },
+    { label: "Pace", value: compactPace(activity.avg_pace_seconds_per_km) },
+    { label: "Avg HR", value: activity.avg_hr_bpm ? `${formatBpm(activity.avg_hr_bpm)} avg HR` : "" },
+    { label: "Cadence", value: activity.avg_run_cadence_spm ? `${formatSpm(activity.avg_run_cadence_spm)} cadence` : "" },
+    { label: "Ascent", value: activity.total_ascent_m !== null && activity.total_ascent_m !== undefined ? `${round(activity.total_ascent_m, 0)} m ascent` : "" },
+  ];
+}
+
+function routeReadNote(ascent) {
+  if (ascent === null || ascent === undefined) return "";
+  if (Number(ascent) <= 60) return "Flat route profile makes the pace and heart-rate relationship easier to read.";
+  return "";
+}
+
+function effortReadItems(z2, z3, z4, z5) {
+  const items = [];
+  if (Number.isFinite(z2)) items.push(`Z2 carried the session: ${z2}%`);
+  if (Number.isFinite(z3) && z3 > 0) items.push(`Z3 appeared but stayed contained: ${z3}%`);
+  if (z4 === 0 && z5 === 0) items.push("No Z4/Z5 time recorded");
+  if (Number.isFinite(z2) && z2 >= 60) items.push("Signal: aerobic control held for most of the run");
+  return items;
+}
+
+function effortReadCopy(z2, z3, z4, z5) {
+  if (!Number.isFinite(z2)) return "";
+  const drift = Number.isFinite(z3) && z3 > 0
+    ? " The Z3 portion suggests some drift or a few stronger sections,"
+    : "";
+  const threshold = z4 === 0 && z5 === 0
+    ? " but there is no sign that the session turned into threshold work."
+    : ".";
+  return `The run mostly stayed where a Z2 session should live.${drift}${threshold}`;
+}
+
+function whatWentWellItems(activity, z2, z4, z5) {
+  const items = [];
+  if (Number.isFinite(z2) && z2 >= 60 && z4 === 0 && z5 === 0) {
+    items.push("Strong aerobic volume without high-intensity spillover");
+  }
+  if (activity.avg_pace_seconds_per_km && activity.avg_hr_bpm) {
+    items.push("Efficient pace for the recorded heart rate");
+  }
+  if (activity.avg_run_cadence_spm) {
+    items.push("High cadence suggests a quick, compact stride");
+  }
+  if (activity.total_ascent_m !== null && activity.total_ascent_m !== undefined && Number(activity.total_ascent_m) <= 60) {
+    items.push("Low climb reduced route noise in the effort read");
+  }
+  return items;
+}
+
+function watchNextTimeItems(z2, z3) {
+  const items = [];
+  if (Number.isFinite(z2) && Number.isFinite(z3) && z3 > 0) {
+    items.push("If this was intended as a pure Z2 day, the only thing to watch is the Z3 drift. Keep the middle and final third slightly easier, or use heart rate as the cap instead of pace.");
+  }
+  items.push("If the goal was aerobic strength rather than strict recovery, this was well controlled.");
+  return items;
+}
+
+function joinSentenceList(items) {
+  if (items.length <= 1) return items.join("");
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+}
+
+function whatHappenedItems(activity, previous, cadence, ascent) {
+  const items = [];
+  if (previous && activity.avg_pace_seconds_per_km && previous.avg_pace_seconds_per_km && previous.distance_km) {
+    const delta = Math.round(previous.avg_pace_seconds_per_km - activity.avg_pace_seconds_per_km);
+    if (delta > 0) {
+      items.push(`Faster than ${relativeRunLabel(activity, previous)} ${formatDistance(previous.distance_km)} run by ${delta} sec/km`);
+    } else if (delta < 0) {
+      items.push(`Slower than ${relativeRunLabel(activity, previous)} ${formatDistance(previous.distance_km)} run by ${Math.abs(delta)} sec/km`);
+    }
+  }
+  if (previous && activity.avg_hr_bpm && previous.avg_hr_bpm) {
+    if (activity.avg_hr_bpm === previous.avg_hr_bpm) {
+      items.push(`Average HR matched ${relativeRunTimeLabel(activity, previous)} at ${formatBpm(activity.avg_hr_bpm)}`);
+    } else {
+      items.push(`Average HR stayed close to ${relativeRunTimeLabel(activity, previous)}: ${formatBpm(activity.avg_hr_bpm)} vs ${formatBpm(previous.avg_hr_bpm)}`);
+    }
+  }
+  if (cadence) items.push(`Cadence stayed high at ${formatSpm(cadence)}`);
+  if (ascent !== null && ascent !== undefined) items.push(`Low climb: ${round(ascent, 0)} m, so pace comparison is meaningful`);
+  return items;
+}
+
+function patternItems(recent, summary) {
+  const items = [];
+  const activityCount = summary?.activity_count || recent.length;
+  if (activityCount && summary?.total_distance_km && summary?.first_date && summary?.last_date) {
+    items.push(`${round(summary.total_distance_km, 1)} km across ${activityCount} runs in ${dateSpanDays(summary.first_date, summary.last_date)} days`);
+  }
+  const hrValues = recent.map((activity) => activity.avg_hr_bpm).filter((value) => value !== null && value !== undefined);
+  if (hrValues.length) {
+    items.push(`Average HR stayed tightly grouped: ${Math.min(...hrValues)}-${Math.max(...hrValues)} bpm`);
+  }
+  const paceValues = recent.map((activity) => activity.avg_pace_seconds_per_km).filter((value) => value !== null && value !== undefined);
+  if (paceValues.length) {
+    items.push(`Pace stayed tightly grouped: ${paceRangeLabel(Math.min(...paceValues), Math.max(...paceValues))}`);
+  }
+  if (hrValues.length && paceValues.length) {
+    items.push("Signal: strong aerobic consistency, but little intensity separation");
+  }
+  return items;
+}
+
+function previousActivity(activity, recent) {
+  const currentDate = activity.activity_date;
+  return [...recent]
+    .filter((item) => item.id !== activity.id && item.activity_date < currentDate)
+    .sort((a, b) => b.activity_date.localeCompare(a.activity_date))[0] || null;
+}
+
+function relativeRunLabel(activity, previous) {
+  return dateSpanDays(previous.activity_date, activity.activity_date) === 2 ? "yesterday's" : "the previous";
+}
+
+function relativeRunTimeLabel(activity, previous) {
+  return dateSpanDays(previous.activity_date, activity.activity_date) === 2 ? "yesterday" : "the previous run";
+}
+
+function zonePercent(zones, zoneNumber) {
+  const zone = zones.find((item) => Number(item.zone_number) === zoneNumber);
+  const percent = Number(zone?.percent);
+  return Number.isFinite(percent) ? Math.round(percent) : null;
+}
+
+function compactPace(value) {
+  const pace = formatPace(value);
+  return pace === "--" ? "" : pace.replace(" /km", "/km");
+}
+
+function paceRangeLabel(fastest, slowest) {
+  const fast = compactPace(fastest).replace("/km", "");
+  const slow = compactPace(slowest);
+  return fast && slow ? `${fast}-${slow}` : "";
+}
+
+function valueOrEmpty(value) {
+  return value === "--" ? "" : value;
+}
+
+function dateSpanDays(firstDate, lastDate) {
+  if (!firstDate || !lastDate) return 0;
+  const first = new Date(`${firstDate}T00:00:00`);
+  const last = new Date(`${lastDate}T00:00:00`);
+  return Math.max(1, Math.round((last - first) / 86400000) + 1);
+}
+
+function zoneList(zones) {
+  const ordered = [...zones].sort((a, b) => a.zone_number - b.zone_number);
+  const maxZone = Math.max(...ordered.map((zone) => Number(zone.zone_number) || 0));
+  return `
+    <div class="zones-list">
+      ${ordered.map((zone) => zoneRow(zone, maxZone)).join("")}
+    </div>
+  `;
+}
+
+function zoneRow(zone, maxZone) {
+  const percent = Math.max(0, Math.min(100, Number(zone.percent) || 0));
+  return `
+    <div class="zone-row" style="--zone-width: ${percent}%; --zone-color: ${escapeAttr(zoneColor(zone, maxZone))};">
+      <span class="zone-label">Z${escapeHTML(zone.zone_number ?? "")}</span>
+      <span class="zone-track"><span></span></span>
+      <span class="zone-percent">${round(percent, 0)}%</span>
+    </div>
   `;
 }
 
@@ -297,10 +715,10 @@ function metricCard(label, value, note) {
 
 function pipelineMetric(label, value) {
   return `
-    <div class="pipeline-metric">
+    <span class="pipeline-metric">
       <span>${escapeHTML(label)}</span>
-      <strong>${escapeHTML(value ?? "--")}</strong>
-    </div>
+      <strong>${escapeHTML(formatInteger(value))}</strong>
+    </span>
   `;
 }
 
@@ -378,7 +796,6 @@ window.addEventListener("resize", () => {
 function renderDetailCharts(detail) {
   renderTelemetryChart("telemetryChart", detail.track);
   renderLapsChart("lapsChart", detail.laps);
-  renderZonesChart("zonesChart", detail.zones);
 }
 
 function chart(id) {
@@ -400,6 +817,28 @@ function bindCollapsibles() {
       if (!nowCollapsed) state.charts.forEach((c) => c.resize());
     });
   });
+}
+
+function bindAgentRunRead() {
+  document.querySelectorAll("[data-agent-read]").forEach((card) => {
+    const toggle = card.querySelector(".agent-read-toggle");
+    if (!toggle) return;
+    toggle.addEventListener("click", (event) => {
+      event.stopPropagation();
+      setAgentReadOpen(card, !card.classList.contains("is-open"));
+    });
+    card.addEventListener("click", () => {
+      if (!card.classList.contains("is-open")) setAgentReadOpen(card, true);
+    });
+  });
+}
+
+function setAgentReadOpen(card, open) {
+  card.classList.toggle("is-open", open);
+  const toggle = card.querySelector(".agent-read-toggle");
+  const icon = card.querySelector(".agent-read-toggle-icon");
+  if (toggle) toggle.setAttribute("aria-expanded", String(open));
+  if (icon) icon.textContent = open ? "-" : "+";
 }
 
 function disposeCharts() {
@@ -446,37 +885,26 @@ function renderLeafletMap(track) {
     opacity: 0.9,
   }).addTo(map);
 
-  map.fitBounds(poly.getBounds(), { padding: [80, 80] });
+  map.fitBounds(poly.getBounds(), {
+    paddingTopLeft: [295, 100],
+    paddingBottomRight: [280, 160],
+  });
   state.map = map;
   createMapControls(map);
 }
 
 function createMapControls(map) {
-  const el = document.createElement("div");
-  el.id = "map-controls";
-  el.innerHTML = `
-    <button data-action="left"     title="Pan left">&#8592;</button>
-    <button data-action="up"       title="Pan up">&#8593;</button>
-    <button data-action="down"     title="Pan down">&#8595;</button>
-    <button data-action="right"    title="Pan right">&#8594;</button>
-    <div class="mc-sep"></div>
-    <button data-action="zoom-out" title="Zoom out">&#8722;</button>
-    <button data-action="zoom-in"  title="Zoom in">&#43;</button>
-  `;
-  const PAN = 140;
+  const el = document.querySelector(".pipeline-map-controls");
+  if (!el) return;
   el.addEventListener("click", (e) => {
     const btn = e.target.closest("button");
     if (!btn) return;
+    e.stopPropagation();
     switch (btn.dataset.action) {
-      case "left":     map.panBy([-PAN, 0]); break;
-      case "right":    map.panBy([ PAN, 0]); break;
-      case "up":       map.panBy([0, -PAN]); break;
-      case "down":     map.panBy([0,  PAN]); break;
       case "zoom-in":  map.zoomIn();         break;
       case "zoom-out": map.zoomOut();        break;
     }
   });
-  document.body.appendChild(el);
 }
 
 function renderRouteChart(id, track) {
@@ -612,7 +1040,7 @@ function renderLapsChart(id, laps) {
         return `${params[0].axisValue}<br>Pace: ${formatPace(pace?.value)}<br>Avg HR: ${formatBpm(hr?.value)}`;
       },
     },
-    legend: { top: 0, right: 8, ...legendBase },
+    legend: { top: 0, left: "center", ...legendBase, itemGap: 16 },
     grid: { left: 50, right: 44, top: 42, bottom: 34 },
     xAxis: {
       type: "category",
@@ -624,7 +1052,6 @@ function renderLapsChart(id, laps) {
     yAxis: [
       {
         type: "value",
-        inverse: true,
         axisLabel: { ...axisLabelBase, formatter: (value) => formatPace(value).replace(" /km", "") },
         splitLine: { lineStyle: { color: chartColors.grid } },
       },
@@ -657,7 +1084,8 @@ function renderLapsChart(id, laps) {
 function renderZonesChart(id, zones) {
   const instance = chart(id);
   if (!instance || !zones.length) return;
-  const ordered = [...zones].sort((a, b) => b.zone_number - a.zone_number);
+  const ordered = [...zones].sort((a, b) => a.zone_number - b.zone_number);
+  const maxZone = Math.max(...ordered.map((zone) => Number(zone.zone_number) || 0));
   instance.setOption({
     backgroundColor: "transparent",
     tooltip: {
@@ -669,7 +1097,7 @@ function renderZonesChart(id, zones) {
         return `Zone ${zone.zone_number}<br>${formatSeconds(zone.time_seconds)}<br>${round(zone.percent, 0)}%`;
       },
     },
-    grid: { left: '6%', right: '6%', top: 12, bottom: 8, containLabel: true },
+    grid: { left: 48, right: 30, top: 12, bottom: 24 },
     xAxis: {
       type: "value",
       max: 100,
@@ -686,15 +1114,21 @@ function renderZonesChart(id, zones) {
     series: [
       {
         type: "bar",
-        data: ordered.map((zone, index) => ({
+        data: ordered.map((zone) => ({
           value: zone.percent || 0,
-          itemStyle: { color: chartColors.zoneRamp[index % chartColors.zoneRamp.length] },
+          itemStyle: { color: zoneColor(zone, maxZone) },
         })),
         barMaxWidth: 14,
         itemStyle: { borderRadius: [0, 4, 4, 0] },
       },
     ],
   });
+}
+
+function zoneColor(zone, maxZone) {
+  const zoneNumber = Number(zone.zone_number) || maxZone;
+  const index = Math.max(0, Math.min(chartColors.zoneRamp.length - 1, maxZone - zoneNumber));
+  return chartColors.zoneRamp[index];
 }
 
 function axis(name, formatter) {
