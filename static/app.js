@@ -6,6 +6,7 @@ const state = {
   activities: [],
   detailCache: new Map(),
   charts: [],
+  map: null,
 };
 
 const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -79,14 +80,18 @@ async function renderFromLocation() {
 
 async function renderOverview() {
   disposeCharts();
+  disposeMap();
   renderShell({ mode: "list", content: overviewTemplate() });
 }
 
 async function renderDetail(id) {
   disposeCharts();
+  disposeMap();
   const detail = await loadDetail(id);
   renderShell({ mode: "detail", content: detailTemplate(detail) });
+  renderLeafletMap(detail.track);
   renderDetailCharts(detail);
+  bindCollapsibles();
 }
 
 function renderShell({ mode, content }) {
@@ -121,7 +126,7 @@ function overviewTemplate() {
       ${metricCard("GPS Points", formatInteger(summary.track_point_count), "route samples")}
     </div>
 
-    <div class="tile-grid">
+    <div class="run-list">
       ${state.activities.map(runTile).join("")}
     </div>
   `;
@@ -130,16 +135,18 @@ function overviewTemplate() {
 function runTile(activity) {
   return `
     <button class="run-tile" data-route="/runs/${escapeAttr(activity.id)}">
-      <div class="run-tile-top">
+      <div class="run-tile-left">
         <span class="run-chip">${escapeHTML(activity.type || "Run")}</span>
-        <span class="run-tile-date">${formatDate(activity.activity_date)}</span>
+        <div class="run-tile-name">${escapeHTML(activity.name)}</div>
       </div>
-      <div class="run-tile-name">${escapeHTML(activity.name)}</div>
-      <div class="run-tile-stats">
-        ${runTileStat("Distance", formatDistance(activity.distance_km))}
-        ${runTileStat("Time", formatSeconds(activity.duration_seconds))}
-        ${runTileStat("Pace", formatPace(activity.avg_pace_seconds_per_km))}
-        ${runTileStat("Avg HR", formatBpm(activity.avg_hr_bpm))}
+      <div class="run-tile-right">
+        <span class="run-tile-date">${formatDate(activity.activity_date)}</span>
+        <div class="run-tile-stats">
+          ${runTileStat("Distance", formatDistance(activity.distance_km))}
+          ${runTileStat("Time", formatSeconds(activity.duration_seconds))}
+          ${runTileStat("Pace", formatPace(activity.avg_pace_seconds_per_km))}
+          ${runTileStat("Avg HR", formatBpm(activity.avg_hr_bpm))}
+        </div>
       </div>
     </button>
   `;
@@ -160,27 +167,14 @@ function detailTemplate(detail) {
   const { activity, laps, segments, zones, exports: exps } = detail;
   return `
     <div class="toolbar">
-      <div>
-        <p class="eyebrow">${escapeHTML(activity.type || "Run")} detail</p>
-        <h1 class="page-title">${escapeHTML(activity.name)}</h1>
-        <p class="page-subtitle">${formatDate(activity.activity_date)} · captured from ${escapeHTML(activity.device_name || "Garmin device")}</p>
-      </div>
-      <div class="export-row">
-        ${exps.map((item) => exportLink(activity.id, item)).join("")}
-      </div>
-      <a class="nav-button" href="/runs" data-route="/runs">All runs</a>
+      <a class="back-btn" href="/runs" data-route="/runs">&#8592;</a>
+      <h1 class="page-title">${escapeHTML(activity.name)}</h1>
+      <span class="toolbar-date">${formatDate(activity.activity_date)}</span>
     </div>
 
-    <div class="detail-3col">
+    <div class="detail-spread">
 
       <div class="left-col stack">
-        ${metricCard("Distance", formatDistance(activity.distance_km), "total")}
-        ${metricCard("Time", formatSeconds(activity.duration_seconds), "elapsed")}
-        ${metricCard("Pace", formatPace(activity.avg_pace_seconds_per_km), "average")}
-        ${metricCard("Ascent", `${round(activity.total_ascent_m, 0)} m`, "gain")}
-        ${metricCard("Avg HR", formatBpm(activity.avg_hr_bpm), "heart rate")}
-        ${metricCard("Cadence", formatSpm(activity.avg_run_cadence_spm), "average")}
-        ${metricCard("Calories", formatInteger(activity.calories), "active")}
         <section class="panel">
           <div class="panel-title">
             <h2>Heart-rate zones</h2>
@@ -188,34 +182,30 @@ function detailTemplate(detail) {
           </div>
           <div class="chart zones-chart" id="zonesChart"></div>
         </section>
-      </div>
-
-      <div class="center-col stack">
-        <section class="panel">
-          <div class="panel-title">
-            <h2>Route</h2>
-            <span>${formatInteger(detail.track.length)} GPS points</span>
-          </div>
-          ${detail.track.length ? '<div class="chart route-chart" id="routeChart"></div>' : '<div class="empty-state">No GPS track points recorded</div>'}
-        </section>
-        <section class="panel">
-          <div class="panel-title">
-            <h2>Performance timeline</h2>
-            <span>elevation, heart rate, cadence</span>
-          </div>
-          <div class="chart telemetry-chart" id="telemetryChart"></div>
-        </section>
+        ${metricCard("Avg HR", formatBpm(activity.avg_hr_bpm), "heart rate")}
+        ${metricCard("Distance", formatDistance(activity.distance_km), "total")}
+        ${metricCard("Time", formatSeconds(activity.duration_seconds), "elapsed")}
+        ${metricCard("Pace", formatPace(activity.avg_pace_seconds_per_km), "average")}
+        ${metricCard("Ascent", `${round(activity.total_ascent_m, 0)} m`, "gain")}
+        ${metricCard("Cadence", formatSpm(activity.avg_run_cadence_spm), "average")}
+        ${metricCard("Calories", formatInteger(activity.calories), "active")}
       </div>
 
       <div class="right-col stack">
-        <section class="panel">
+        <section class="panel collapsible">
+          <div class="panel-title">
+            <h2>Performance timeline</h2>
+          </div>
+          <div class="chart telemetry-chart" id="telemetryChart"></div>
+        </section>
+        <section class="panel collapsible">
           <div class="panel-title">
             <h2>Lap pace</h2>
             <span>${laps.length} laps</span>
           </div>
           <div class="chart laps-chart" id="lapsChart"></div>
         </section>
-        <section class="table-panel">
+        <section class="table-panel collapsible">
           <div class="panel-title">
             <h2>Lap table</h2>
             <span>per kilometer view</span>
@@ -236,7 +226,7 @@ function detailTemplate(detail) {
             </table>
           </div>
         </section>
-        <section class="table-panel">
+        <section class="table-panel collapsible">
           <div class="panel-title">
             <h2>Segments</h2>
             <span>${segments.length} entries</span>
@@ -255,7 +245,7 @@ function detailTemplate(detail) {
             </table>
           </div>
         </section>
-        <section class="panel">
+        <section class="panel collapsible">
           <div class="panel-title">
             <h2>Run context</h2>
             <span>device, gear, weather</span>
@@ -386,9 +376,6 @@ window.addEventListener("resize", () => {
 // ---------- Charts ----------
 
 function renderDetailCharts(detail) {
-  if (detail.track.length) {
-    renderRouteChart("routeChart", detail.track);
-  }
   renderTelemetryChart("telemetryChart", detail.track);
   renderLapsChart("lapsChart", detail.laps);
   renderZonesChart("zonesChart", detail.zones);
@@ -402,9 +389,94 @@ function chart(id) {
   return instance;
 }
 
+function bindCollapsibles() {
+  document.querySelectorAll(".collapsible").forEach((panel) => {
+    panel.classList.add("is-collapsed");
+    const title = panel.querySelector(".panel-title");
+    if (!title) return;
+    title.style.cursor = "pointer";
+    title.addEventListener("click", () => {
+      const nowCollapsed = panel.classList.toggle("is-collapsed");
+      if (!nowCollapsed) state.charts.forEach((c) => c.resize());
+    });
+  });
+}
+
 function disposeCharts() {
   state.charts.forEach((instance) => instance.dispose());
   state.charts = [];
+}
+
+function disposeMap() {
+  if (state.map) {
+    state.map.remove();
+    state.map = null;
+  }
+  document.getElementById("map-bg")?.remove();
+  document.getElementById("map-controls")?.remove();
+}
+
+function renderLeafletMap(track) {
+  let mapEl = document.getElementById("map-bg");
+  if (!mapEl) {
+    mapEl = document.createElement("div");
+    mapEl.id = "map-bg";
+    document.body.prepend(mapEl);
+  }
+  if (!track || !track.length) return;
+
+  const coords = track.map((p) => [p.lat, p.lon]);
+  const map = L.map("map-bg", {
+    zoomControl: false,
+    attributionControl: true,
+    dragging: true,
+    scrollWheelZoom: false,
+    keyboard: false,
+  });
+
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains: "abcd",
+    maxZoom: 19,
+  }).addTo(map);
+
+  const poly = L.polyline(coords, {
+    color: "#FF7133",
+    weight: 3.5,
+    opacity: 0.9,
+  }).addTo(map);
+
+  map.fitBounds(poly.getBounds(), { padding: [80, 80] });
+  state.map = map;
+  createMapControls(map);
+}
+
+function createMapControls(map) {
+  const el = document.createElement("div");
+  el.id = "map-controls";
+  el.innerHTML = `
+    <button data-action="left"     title="Pan left">&#8592;</button>
+    <button data-action="up"       title="Pan up">&#8593;</button>
+    <button data-action="down"     title="Pan down">&#8595;</button>
+    <button data-action="right"    title="Pan right">&#8594;</button>
+    <div class="mc-sep"></div>
+    <button data-action="zoom-out" title="Zoom out">&#8722;</button>
+    <button data-action="zoom-in"  title="Zoom in">&#43;</button>
+  `;
+  const PAN = 140;
+  el.addEventListener("click", (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    switch (btn.dataset.action) {
+      case "left":     map.panBy([-PAN, 0]); break;
+      case "right":    map.panBy([ PAN, 0]); break;
+      case "up":       map.panBy([0, -PAN]); break;
+      case "down":     map.panBy([0,  PAN]); break;
+      case "zoom-in":  map.zoomIn();         break;
+      case "zoom-out": map.zoomOut();        break;
+    }
+  });
+  document.body.appendChild(el);
 }
 
 function renderRouteChart(id, track) {
@@ -597,7 +669,7 @@ function renderZonesChart(id, zones) {
         return `Zone ${zone.zone_number}<br>${formatSeconds(zone.time_seconds)}<br>${round(zone.percent, 0)}%`;
       },
     },
-    grid: { left: 54, right: 16, top: 12, bottom: 24 },
+    grid: { left: '6%', right: '6%', top: 12, bottom: 8, containLabel: true },
     xAxis: {
       type: "value",
       max: 100,

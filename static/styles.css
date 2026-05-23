@@ -46,20 +46,95 @@ button {
   text-transform: uppercase;
 }
 
+/* ---------- Map background ---------- */
+
+#map-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+}
+
+/* ---------- Map controls ---------- */
+
+#map-controls {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  background: rgba(10, 11, 12, 0.72);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--pe-border-subtle);
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+}
+
+#map-controls button {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--pe-text-metadata);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+#map-controls button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--pe-border-subtle);
+  color: var(--pe-text-primary);
+}
+
+#map-controls button:active {
+  background: rgba(255, 255, 255, 0.13);
+  color: var(--pe-text-primary);
+}
+
+.mc-sep {
+  width: 1px;
+  height: 22px;
+  background: var(--pe-border-subtle);
+  margin: 0 2px;
+  flex-shrink: 0;
+}
+
 /* ---------- Shells ---------- */
 
-.list-shell,
-.detail-shell {
+.list-shell {
   max-width: 1520px;
   min-height: 100vh;
   margin: 0 auto;
   padding: 28px 22px 48px;
 }
 
+.detail-shell {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  padding: 28px 12px 64px;
+  pointer-events: none;
+}
+
+.detail-shell .toolbar,
+.detail-shell .left-col,
+.detail-shell .right-col {
+  pointer-events: auto;
+}
+
 /* ---------- Panel surfaces ---------- */
 
 .panel,
-.metric-card,
 .run-tile,
 .pipeline-strip,
 .table-panel {
@@ -72,7 +147,6 @@ button {
 }
 
 .panel::before,
-.metric-card::before,
 .run-tile::before,
 .pipeline-strip::before,
 .table-panel::before {
@@ -172,7 +246,7 @@ button {
 
 .metric-card {
   min-height: 104px;
-  padding: 16px;
+  padding: 16px 20px 16px 0;
 }
 
 .metric-label {
@@ -200,17 +274,23 @@ button {
   font-weight: 400;
 }
 
-/* ---------- Page 1: tile grid ---------- */
+/* ---------- Page 1: run list ---------- */
 
-.tile-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+.run-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 860px;
+  margin: 0 auto;
 }
 
 .run-tile {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
   width: 100%;
-  padding: 20px;
+  padding: 16px 20px;
   text-align: left;
   cursor: pointer;
   background-color: var(--pe-panel-raised);
@@ -223,11 +303,28 @@ button {
   border-color: var(--pe-border-strong);
 }
 
-.run-tile-top {
+.run-tile-left {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  gap: 12px;
+  min-width: 0;
+}
+
+.run-tile-name {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.008em;
+  color: var(--pe-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.run-tile-right {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-shrink: 0;
 }
 
 .run-tile-date {
@@ -236,21 +333,12 @@ button {
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.04em;
-}
-
-.run-tile-name {
-  margin: 14px 0 16px;
-  font-size: 20px;
-  font-weight: 600;
-  line-height: 1.2;
-  letter-spacing: -0.01em;
-  color: var(--pe-text-primary);
+  white-space: nowrap;
 }
 
 .run-tile-stats {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
+  display: flex;
+  gap: 24px;
 }
 
 .run-tile-stat span {
@@ -265,8 +353,8 @@ button {
 
 .run-tile-stat strong {
   display: block;
-  margin-top: 6px;
-  font-size: 15px;
+  margin-top: 4px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--pe-text-primary);
 }
@@ -318,23 +406,116 @@ button {
   color: var(--pe-text-primary);
 }
 
-/* ---------- Page 2: 3-column layout ---------- */
+/* ---------- Page 2: glass panels ---------- */
 
-.detail-3col {
-  display: grid;
-  grid-template-columns: 300px minmax(0, 1fr) 300px;
-  gap: 14px;
-  align-items: start;
+.detail-shell .panel,
+.detail-shell .table-panel,
+.detail-shell .pipeline-strip {
+  background-color: rgba(10, 11, 12, 0.38);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 4px 32px rgba(0, 0, 0, 0.4);
+}
+
+.detail-shell .metric-card {
+  position: relative;
+  background-color: rgba(10, 11, 12, 0.38);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--pe-border-subtle);
+  border-radius: var(--pe-radius-panel);
+  box-shadow: 0 4px 32px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+
+.detail-shell .metric-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: var(--pe-highlight-top);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.detail-shell .toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background-color: rgba(10, 11, 12, 0.38);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--pe-border-subtle);
+  border-radius: 0;
+  /* bleed to viewport edges, overriding shell padding */
+  margin: -28px -12px 24px;
+  padding: 13px 12px;
+  align-items: center;
+  gap: 10px;
+}
+
+.detail-shell .toolbar .page-title {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.toolbar-date {
+  margin-left: auto;
+  color: var(--pe-text-metadata);
+  font-family: var(--pe-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border: 1px solid var(--pe-border-subtle);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--pe-text-secondary);
+  text-decoration: none;
+  font-size: 18px;
+  line-height: 1;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.back-btn:hover {
+  background: rgba(255, 255, 255, 0.11);
+  color: var(--pe-text-primary);
+}
+
+/* ---------- Page 2: spread layout ---------- */
+
+.detail-spread {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
 }
 
 .stack {
-  display: grid;
-  gap: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-/* Left column: compact metric cards */
-.left-col.stack {
-  gap: 10px;
+.left-col {
+  width: 288px;
+  flex-shrink: 0;
+}
+
+.right-col {
+  width: 352px;
+  flex-shrink: 0;
 }
 
 .left-col .metric-card {
@@ -345,6 +526,29 @@ button {
 .left-col .metric-value {
   margin-top: 8px;
   font-size: 20px;
+}
+
+/* ---------- Collapsible panels ---------- */
+
+.collapsible.is-collapsed > *:not(.panel-title) {
+  display: none;
+}
+
+.collapsible .panel-title h2::after {
+  content: " −";
+  color: var(--pe-text-dim);
+  font-family: var(--pe-font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.collapsible.is-collapsed .panel-title h2::after {
+  content: " +";
+}
+
+.collapsible.is-collapsed .panel-title {
+  padding-bottom: 16px;
 }
 
 /* ---------- Panel internals ---------- */
