@@ -1,0 +1,7 @@
+source-data/
+.pycache/
+scripts/
+server.py
+CLAUDE.md
+DESIGN.md
+README.md
