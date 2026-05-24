@@ -132,8 +132,11 @@ function overviewTemplate(latestDetail) {
 
     <div class="run-list">
       ${latestDetail ? agentRunReadCard(buildRecentAgentRunRead(latestDetail), "list-agent-read-card") : ""}
+      ${latestDetail ? '<div class="run-list-separator" aria-hidden="true"></div>' : ""}
       ${state.activities.map(runTile).join("")}
     </div>
+
+    ${provenanceStrip(state.provenance, { mapControls: false })}
   `;
 }
 
@@ -274,7 +277,8 @@ function detailTemplate(detail) {
 
 // ---------- Shared components ----------
 
-function provenanceStrip(provenance) {
+function provenanceStrip(provenance, options = {}) {
+  const showMapControls = options.mapControls !== false;
   const detail = [
     provenance?.latest_capture ? `Latest capture ${formatDateTime(provenance.latest_capture)}` : "",
     provenance?.database ? `from ${provenance.database}.` : "",
@@ -286,16 +290,18 @@ function provenanceStrip(provenance) {
     ["Bundles", provenance?.source_bundle_count],
   ].filter(([, value]) => value !== null && value !== undefined && value !== "");
   return `
-    <section class="pipeline-strip" aria-label="Dashboard provenance">
+    <section class="pipeline-strip ${showMapControls ? "" : "without-map-controls"}" aria-label="Dashboard provenance">
       <span class="pipeline-copy">
         <span class="pipeline-flow">Garmin profile → generated CLI → SQLite → local dashboard</span>
         ${detail ? `<span class="pipeline-detail">${escapeHTML(detail)}</span>` : ""}
       </span>
       ${metrics.length ? `<span class="pipeline-stats">${metrics.map(([label, value]) => pipelineMetric(label, value)).join("")}</span>` : ""}
-      <span class="pipeline-map-controls" aria-label="Map zoom controls">
-        <button type="button" data-action="zoom-out" title="Zoom out">&#8722;</button>
-        <button type="button" data-action="zoom-in" title="Zoom in">&#43;</button>
-      </span>
+      ${showMapControls ? `
+        <span class="pipeline-map-controls" aria-label="Map zoom controls">
+          <button type="button" data-action="zoom-out" title="Zoom out">&#8722;</button>
+          <button type="button" data-action="zoom-in" title="Zoom in">&#43;</button>
+        </span>
+      ` : ""}
     </section>
   `;
 }
@@ -307,7 +313,7 @@ function agentRunReadCard(read, className = "") {
         <span class="agent-read-heading">
           <span class="agent-read-dot" aria-hidden="true"></span>
           <span class="agent-read-title">Agent run read</span>
-          <span class="agent-read-chip">READ-ONLY</span>
+          ${className.includes("activity-agent-read-card") ? "" : '<span class="agent-read-chip">READ-ONLY</span>'}
         </span>
         <span class="agent-read-toggle-icon" aria-hidden="true">+</span>
       </button>
@@ -404,6 +410,7 @@ function buildRecentAgentRunRead(detail) {
   const activity = detail.activity;
   const zones = detail.zones || [];
   const recent = state.activities || [];
+  const summary = state.summary || {};
   const previous = previousActivity(activity, recent);
   const z2 = zonePercent(zones, 2);
   const z4 = zonePercent(zones, 4);
@@ -418,9 +425,9 @@ function buildRecentAgentRunRead(detail) {
   const meta = recentCount ? `Generated from latest activity + last ${recentCount} runs` : "Generated from latest activity + recent runs";
 
   return {
-    verdict: "Controlled aerobic build",
-    closedSummary: closedRecentAgentSummary(distance, pace, z2, avgHr),
-    openSummary: openRecentAgentSummary(distance, pace, z2, z4, z5),
+    verdict: recentBlockVerdict(recent, summary),
+    closedSummary: closedRecentAgentSummary(summary, recent, distance, pace, z2, avgHr),
+    openSummary: openRecentAgentSummary(summary, recent, distance, pace, z2, z4, z5),
     meta,
     chips: ["READ-ONLY", contextLabel, "Garmin data"],
     sections: [
@@ -429,7 +436,7 @@ function buildRecentAgentRunRead(detail) {
       {
         type: "callout",
         title: "Next best move",
-        body: "Do not stack another medium-long steady run tomorrow. Either take an easy recovery day, or make the next quality session clearly different: shorter, sharper, and intentionally higher intensity.",
+        body: "The list shows several similar aerobic efforts close together. Use the next run to create contrast: easier recovery, or a clearly different quality session.",
       },
       agentBoundarySection("Generated from Garmin activity data and recent run history."),
     ],
@@ -450,18 +457,12 @@ function buildActivityAgentRunRead(detail) {
   const ascent = activity.total_ascent_m;
 
   return {
-    verdict: "Steady Z2 aerobic run",
+    verdict: activityReadVerdict(activity, z2, z4, z5),
     closedSummary: closedActivityAgentSummary(distance, pace, z2),
     openSummary: openActivityAgentSummary(activity, pace, avgHr, z2, z4, z5),
     meta: "Generated from this activity",
     chips: ["READ-ONLY", "This activity", "Garmin data"],
     sections: [
-      {
-        type: "metrics",
-        title: "Run overview",
-        items: activityOverviewMetrics(activity),
-        note: routeReadNote(ascent),
-      },
       {
         title: "Effort read",
         body: effortReadCopy(z2, z3, z4, z5),
@@ -478,9 +479,18 @@ function buildActivityAgentRunRead(detail) {
         title: "Next best move",
         body: "Treat this as a successful aerobic build session. The next run should either be clearly easier for recovery, or clearly different if quality is planned. Avoid turning the next session into another medium-hard steady run by default.",
       },
-      agentBoundarySection("Generated from the selected Garmin activity."),
     ],
   };
+}
+
+function activityReadVerdict(activity, z2, z4, z5) {
+  if (Number.isFinite(z2) && z2 >= 60 && z4 === 0 && z5 === 0) {
+    return `${formatDistance(activity.distance_km)} controlled aerobic`;
+  }
+  if (activity.avg_hr_bpm && activity.avg_pace_seconds_per_km) {
+    return `${formatPace(activity.avg_pace_seconds_per_km).replace(" /km", "/km")} at ${formatBpm(activity.avg_hr_bpm)}`;
+  }
+  return "Steady activity read";
 }
 
 function agentBoundarySection(summary) {
@@ -492,18 +502,41 @@ function agentBoundarySection(summary) {
   };
 }
 
-function closedRecentAgentSummary(distance, pace, z2, avgHr) {
+function recentBlockVerdict(recent, summary) {
+  const count = summary?.activity_count || recent.length;
+  if (count > 1) return `${count} runs, one steady pattern`;
+  return "Recent block is steady";
+}
+
+function closedRecentAgentSummary(summary, recent, distance, pace, z2, avgHr) {
   if (!distance || !pace) return "";
   const zonePhrase = Number.isFinite(z2) ? "mostly Z2" : "a recorded aerobic profile";
   const hrPhrase = avgHr ? "with stable heart rate" : "with recorded effort data";
-  return `${distance} at ${pace}, ${zonePhrase}, ${hrPhrase}.`;
+  const ranges = recentRangeSummary(recent);
+  const block = summary?.total_distance_km && summary?.first_date && summary?.last_date
+    ? ` inside a ${round(summary.total_distance_km, 1)} km recent block`
+    : "";
+  return `Latest run: ${distance} at ${pace}, ${zonePhrase}, ${hrPhrase}${block}${ranges ? `; ${ranges}` : ""}.`;
 }
 
-function openRecentAgentSummary(distance, pace, z2, z4, z5) {
+function openRecentAgentSummary(summary, recent, distance, pace, z2, z4, z5) {
   if (!distance || !pace) return "";
+  const block = summary?.total_distance_km && summary?.activity_count
+    ? `${round(summary.total_distance_km, 1)} km across ${summary.activity_count} listed runs`
+    : "the listed runs";
   const zonePhrase = Number.isFinite(z2) ? `, with ${z2}% of the run in Z2` : "";
   const noHardZones = z4 === 0 && z5 === 0 ? " and no time in Z4/Z5" : "";
-  return `${distance} at ${pace}${zonePhrase}${noHardZones}. This reads as a steady aerobic session, not a maximal effort.`;
+  const ranges = recentRangeSummary(recent);
+  return `Across ${block}, the latest entry is ${distance} at ${pace}${zonePhrase}${noHardZones}. ${ranges ? `The range is narrow (${ranges}), so ` : "The list suggests "}this reads as consistent aerobic work more than varied training stress.`;
+}
+
+function recentRangeSummary(recent) {
+  const hrValues = recent.map((activity) => activity.avg_hr_bpm).filter((value) => value !== null && value !== undefined);
+  const paceValues = recent.map((activity) => activity.avg_pace_seconds_per_km).filter((value) => value !== null && value !== undefined);
+  const parts = [];
+  if (paceValues.length > 1) parts.push(`${paceRangeLabel(Math.min(...paceValues), Math.max(...paceValues))} pace range`);
+  if (hrValues.length > 1) parts.push(`${Math.min(...hrValues)}-${Math.max(...hrValues)} bpm avg HR`);
+  return parts.join(", ");
 }
 
 function closedActivityAgentSummary(distance, pace, z2) {
